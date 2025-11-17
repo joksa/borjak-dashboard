@@ -82,7 +82,8 @@ export default function ZaduzenjaPage() {
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingFinansija, setEditingFinansija] = useState<LifletFinansije | null>(null);
+  const [editingFinansija, setEditingFinansija] =
+    useState<LifletFinansije | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -96,7 +97,9 @@ export default function ZaduzenjaPage() {
   });
 
   const [clientSearchTerm, setClientSearchTerm] = useState("");
-  const [searchedClients, setSearchedClients] = useState<ClientSearchResult[]>([]);
+  const [searchedClients, setSearchedClients] = useState<ClientSearchResult[]>(
+    []
+  );
   const [showClientDropdown, setShowClientDropdown] = useState(false);
 
   useEffect(() => {
@@ -151,11 +154,14 @@ export default function ZaduzenjaPage() {
     if (!editingFinansija) return;
 
     try {
-      const response = await fetch(`/api/liflet/finansije/${editingFinansija.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const response = await fetch(
+        `/api/liflet/finansije/${editingFinansija.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        }
+      );
 
       if (response.ok) {
         toast.success("Financial record updated successfully");
@@ -239,12 +245,16 @@ export default function ZaduzenjaPage() {
       dug: true, // Always true for zaduzenja
       iznos: finansija.iznos.toString(),
       datum: new Date(finansija.datum).toISOString().split("T")[0],
-      valuta: finansija.valuta ? new Date(finansija.valuta).toISOString().split("T")[0] : "",
+      valuta: finansija.valuta
+        ? new Date(finansija.valuta).toISOString().split("T")[0]
+        : "",
       napomena: finansija.napomena || "",
       selectedClient: finansija.klijenti || null,
     });
     setClientSearchTerm(
-      finansija.klijenti ? `${finansija.klijenti.Naziv} (${finansija.klijenti.PIB})` : ""
+      finansija.klijenti
+        ? `${finansija.klijenti.Naziv} (${finansija.klijenti.PIB})`
+        : ""
     );
     setIsEditModalOpen(true);
   };
@@ -260,7 +270,7 @@ export default function ZaduzenjaPage() {
 
   // Serbian number formatting function
   const formatSerbianNumber = (value: number) => {
-    return new Intl.NumberFormat('sr-RS', {
+    return new Intl.NumberFormat("sr-RS", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
@@ -563,7 +573,9 @@ export default function ZaduzenjaPage() {
                           {new Date(finansija.datum).toLocaleDateString()}
                         </td>
                         <td className="border border-border px-4 py-2">
-                          {finansija.valuta ? new Date(finansija.valuta).toLocaleDateString() : "-"}
+                          {finansija.valuta
+                            ? new Date(finansija.valuta).toLocaleDateString()
+                            : "-"}
                         </td>
                         <td className="border border-border px-4 py-2">
                           {finansija.napomena || "-"}
@@ -585,9 +597,12 @@ export default function ZaduzenjaPage() {
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogTitle>
+                                    Are you sure?
+                                  </AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete this zaduzenje record.
+                                    This action cannot be undone. This will
+                                    permanently delete this zaduzenje record.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -608,11 +623,20 @@ export default function ZaduzenjaPage() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-muted/30 font-semibold">
-                    <td colSpan={2} className="border border-border px-4 py-3 text-right">
+                    <td
+                      colSpan={2}
+                      className="border border-border px-4 py-3 text-right"
+                    >
                       TOTAL:
                     </td>
                     <td className="border border-border px-4 py-3">
-                      {formatSerbianNumber(filteredFinansije.reduce((sum, f) => sum + Number(f.iznos || 0), 0))} RSD
+                      {formatSerbianNumber(
+                        filteredFinansije.reduce(
+                          (sum, f) => sum + Number(f.iznos || 0),
+                          0
+                        )
+                      )}{" "}
+                      RSD
                     </td>
                     <td colSpan={4} className="border border-border px-4 py-3">
                       {/* Empty cells for the remaining columns */}

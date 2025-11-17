@@ -38,7 +38,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Upload,
 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 
 type LifletFinansije = {
@@ -82,7 +84,8 @@ export default function UplatePage() {
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingFinansija, setEditingFinansija] = useState<LifletFinansije | null>(null);
+  const [editingFinansija, setEditingFinansija] =
+    useState<LifletFinansije | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -96,8 +99,14 @@ export default function UplatePage() {
   });
 
   const [clientSearchTerm, setClientSearchTerm] = useState("");
-  const [searchedClients, setSearchedClients] = useState<ClientSearchResult[]>([]);
+  const [searchedClients, setSearchedClients] = useState<ClientSearchResult[]>(
+    []
+  );
   const [showClientDropdown, setShowClientDropdown] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [parsedData, setParsedData] = useState<any[]>([]);
+  const [selectedRows, setSelectedRows] = useState<Set<number>>(new Set());
+  const [isDragOver, setIsDragOver] = useState(false);
 
   useEffect(() => {
     loadFinansije();
@@ -151,11 +160,14 @@ export default function UplatePage() {
     if (!editingFinansija) return;
 
     try {
-      const response = await fetch(`/api/liflet/finansije/${editingFinansija.id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
-      });
+      const response = await fetch(
+        `/api/liflet/finansije/${editingFinansija.id}`,
+        {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(formData),
+        }
+      );
 
       if (response.ok) {
         toast.success("Financial record updated successfully");
@@ -187,6 +199,117 @@ export default function UplatePage() {
     } catch (error) {
       console.error("Error deleting financial record:", error);
       toast.error("Failed to delete financial record");
+    }
+  };
+
+  const parseEBankingFile = (content: string) => {
+    const lines = content.split("\n");
+    const parsedRecords: any[] = [];
+
+    for (const line of lines) {
+      if (line.trim().length === 0) continue;
+
+      // Check positions 18-19, if "10" then ignore this line
+      const checkValue = line.substring(18, 20).trim();
+      if (checkValue === "10") continue;
+
+      // Extract fields based on positions
+      const referenceNumber = line.substring(0, 18).trim(); // 0-17
+      const amountStr = line.substring(90, 105).trim(); // 90-104
+      const accountNumber = line.substring(137, 157).trim(); // 137-156
+      const description = line.substring(159, 239).trim(); // 159-238
+
+      // Format reference number as 3-13-2 digits
+      let formattedReference = "";
+      if (referenceNumber.length >= 18) {
+        const part1 = referenceNumber.substring(0, 3);
+        const part2 = referenceNumber.substring(3, 16);
+        const part3 = referenceNumber.substring(16, 18);
+        formattedReference = `${part1}-${part2}-${part3}`;
+      } else {
+        formattedReference = referenceNumber;
+      }
+
+      // Parse amount (divide by 100)
+      const amount = amountStr ? parseFloat(amountStr) / 100 : 0;
+
+      parsedRecords.push({
+        reference: formattedReference,
+        amount: amount,
+        accountNumber: accountNumber || "",
+        description: description || "",
+        rawLine: line.trim(),
+      });
+    }
+
+    return parsedRecords;
+  };
+
+  const handleFileUpload = async (file: File) => {
+    try {
+      const content = await file.text();
+      const parsedRecords = parseEBankingFile(content);
+
+      if (parsedRecords.length === 0) {
+        toast.error("No valid records found in the file");
+        return;
+      }
+
+      setParsedData(parsedRecords);
+      setSelectedRows(new Set()); // Clear selection when new file is loaded
+
+      toast.success(
+        `Parsed ${parsedRecords.length} records from "${file.name}"`
+      );
+    } catch (error) {
+      console.error("Error parsing file:", error);
+      toast.error("Failed to parse file");
+    }
+  };
+
+  const handleRowSelection = (rowIndex: number, checked: boolean) => {
+    const newSelection = new Set(selectedRows);
+    if (checked) {
+      newSelection.add(rowIndex);
+    } else {
+      newSelection.delete(rowIndex);
+    }
+    setSelectedRows(newSelection);
+  };
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedRows(new Set(parsedData.map((_, index) => index)));
+    } else {
+      setSelectedRows(new Set());
+    }
+  };
+
+  const handleImportData = async () => {
+    try {
+      const selectedData = Array.from(selectedRows).map(
+        (index) => parsedData[index]
+      );
+
+      if (selectedData.length === 0) {
+        toast.error("Please select at least one record to import");
+        return;
+      }
+
+      // For now, just show a placeholder message with selected data count
+      // The actual import logic will be implemented based on how to map eBanking data to database
+      toast.info(
+        `Import functionality ready. Selected ${selectedData.length} records. Mapping logic to be implemented.`
+      );
+
+      console.log("Selected data for import:", selectedData);
+
+      setIsImportModalOpen(false);
+      setParsedData([]);
+      setSelectedRows(new Set());
+    } catch (error) {
+      console.error("Error importing data:", error);
+      toast.error("Failed to import data");
     }
   };
 
@@ -239,12 +362,16 @@ export default function UplatePage() {
       dug: false, // Always false for uplate
       iznos: finansija.iznos.toString(),
       datum: new Date(finansija.datum).toISOString().split("T")[0],
-      valuta: finansija.valuta ? new Date(finansija.valuta).toISOString().split("T")[0] : "",
+      valuta: finansija.valuta
+        ? new Date(finansija.valuta).toISOString().split("T")[0]
+        : "",
       napomena: finansija.napomena || "",
       selectedClient: finansija.klijenti || null,
     });
     setClientSearchTerm(
-      finansija.klijenti ? `${finansija.klijenti.Naziv} (${finansija.klijenti.PIB})` : ""
+      finansija.klijenti
+        ? `${finansija.klijenti.Naziv} (${finansija.klijenti.PIB})`
+        : ""
     );
     setIsEditModalOpen(true);
   };
@@ -260,7 +387,7 @@ export default function UplatePage() {
 
   // Serbian number formatting function
   const formatSerbianNumber = (value: number) => {
-    return new Intl.NumberFormat('sr-RS', {
+    return new Intl.NumberFormat("sr-RS", {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
@@ -321,123 +448,305 @@ export default function UplatePage() {
         <Card className="w-full h-full">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Uplate Details</CardTitle>
-            <Dialog
-              open={isCreateModalOpen}
-              onOpenChange={setIsCreateModalOpen}
-            >
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Add Uplata
-                </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Add New Uplata</DialogTitle>
-                  <DialogDescription>
-                    Add a new payment/credit record.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <label htmlFor="client_search" className="text-right">
-                      Client
-                    </label>
-                    <div className="col-span-3 relative">
-                      <Input
-                        id="client_search"
-                        placeholder="Type to search clients..."
-                        value={clientSearchTerm}
-                        onChange={(e) => {
-                          setClientSearchTerm(e.target.value);
-                          searchClients(e.target.value);
-                        }}
-                        className="w-full"
-                      />
-                      {showClientDropdown && searchedClients.length > 0 && (
-                        <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                          {searchedClients.map((client) => (
-                            <div
-                              key={client.ID_Klijent}
-                              className="px-4 py-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
-                              onClick={() => selectClient(client)}
-                            >
-                              <div className="font-medium">{client.Naziv}</div>
-                              <div className="text-sm text-muted-foreground">
-                                PIB: {client.PIB}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <label htmlFor="iznos" className="text-right">
-                      Amount
-                    </label>
-                    <Input
-                      id="iznos"
-                      type="number"
-                      step="0.01"
-                      value={formData.iznos}
-                      onChange={(e) =>
-                        setFormData({ ...formData, iznos: e.target.value })
-                      }
-                      className="col-span-3"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <label htmlFor="datum" className="text-right">
-                      Date
-                    </label>
-                    <Input
-                      id="datum"
-                      type="date"
-                      value={formData.datum}
-                      onChange={(e) =>
-                        setFormData({ ...formData, datum: e.target.value })
-                      }
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <label htmlFor="valuta" className="text-right">
-                      Due Date
-                    </label>
-                    <Input
-                      id="valuta"
-                      type="date"
-                      value={formData.valuta}
-                      onChange={(e) =>
-                        setFormData({ ...formData, valuta: e.target.value })
-                      }
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <label htmlFor="napomena" className="text-right">
-                      Note
-                    </label>
-                    <Input
-                      id="napomena"
-                      value={formData.napomena}
-                      onChange={(e) =>
-                        setFormData({ ...formData, napomena: e.target.value })
-                      }
-                      className="col-span-3"
-                      placeholder="Optional note"
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit" onClick={handleCreate}>
+            <div className="flex gap-2">
+              <Dialog
+                open={isCreateModalOpen}
+                onOpenChange={setIsCreateModalOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
                     Add Uplata
                   </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Add New Uplata</DialogTitle>
+                    <DialogDescription>
+                      Add a new payment/credit record.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <label htmlFor="client_search" className="text-right">
+                        Client
+                      </label>
+                      <div className="col-span-3 relative">
+                        <Input
+                          id="client_search"
+                          placeholder="Type to search clients..."
+                          value={clientSearchTerm}
+                          onChange={(e) => {
+                            setClientSearchTerm(e.target.value);
+                            searchClients(e.target.value);
+                          }}
+                          className="w-full"
+                        />
+                        {showClientDropdown && searchedClients.length > 0 && (
+                          <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                            {searchedClients.map((client) => (
+                              <div
+                                key={client.ID_Klijent}
+                                className="px-4 py-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
+                                onClick={() => selectClient(client)}
+                              >
+                                <div className="font-medium">
+                                  {client.Naziv}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  PIB: {client.PIB}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <label htmlFor="iznos" className="text-right">
+                        Amount
+                      </label>
+                      <Input
+                        id="iznos"
+                        type="number"
+                        step="0.01"
+                        value={formData.iznos}
+                        onChange={(e) =>
+                          setFormData({ ...formData, iznos: e.target.value })
+                        }
+                        className="col-span-3"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <label htmlFor="datum" className="text-right">
+                        Date
+                      </label>
+                      <Input
+                        id="datum"
+                        type="date"
+                        value={formData.datum}
+                        onChange={(e) =>
+                          setFormData({ ...formData, datum: e.target.value })
+                        }
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <label htmlFor="valuta" className="text-right">
+                        Due Date
+                      </label>
+                      <Input
+                        id="valuta"
+                        type="date"
+                        value={formData.valuta}
+                        onChange={(e) =>
+                          setFormData({ ...formData, valuta: e.target.value })
+                        }
+                        className="col-span-3"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <label htmlFor="napomena" className="text-right">
+                        Note
+                      </label>
+                      <Input
+                        id="napomena"
+                        value={formData.napomena}
+                        onChange={(e) =>
+                          setFormData({ ...formData, napomena: e.target.value })
+                        }
+                        className="col-span-3"
+                        placeholder="Optional note"
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button type="submit" onClick={handleCreate}>
+                      Add Uplata
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog
+                open={isImportModalOpen}
+                onOpenChange={setIsImportModalOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button variant="outline">
+                    <Upload className="w-4 h-4 mr-2" />
+                    Uvoz eBanking
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="max-w-4xl">
+                  <DialogHeader>
+                    <DialogTitle>Uvoz eBanking podataka</DialogTitle>
+                    <DialogDescription>
+                      Prevucite CSV ili Excel fajl ili kliknite da odaberete
+                      fajl za uvoz transakcija.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-4">
+                    <div
+                      className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
+                        isDragOver
+                          ? "border-primary bg-primary/5"
+                          : "border-gray-300 hover:border-gray-400"
+                      }`}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragOver(false);
+                        const files = Array.from(e.dataTransfer.files);
+                        if (files.length > 0) {
+                          handleFileUpload(files[0]);
+                        }
+                      }}
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragOver(true);
+                      }}
+                      onDragLeave={() => setIsDragOver(false)}
+                    >
+                      <Upload className="w-12 h-12 mx-auto mb-4 text-gray-400" />
+                      <p className="text-lg font-medium mb-2">
+                        Prevucite fajl ovde ili{" "}
+                        <label className="text-primary cursor-pointer hover:underline">
+                          kliknite da odaberete
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept=".csv,.xlsx,.xls,.txt"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                handleFileUpload(file);
+                              }
+                            }}
+                          />
+                        </label>
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        Podržani formati: CSV, Excel, TXT (.xlsx, .xls, .txt)
+                      </p>
+                    </div>
+
+                    {parsedData.length > 0 && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <h3 className="text-lg font-semibold">
+                            Parsed Data Preview ({selectedRows.size} selected)
+                          </h3>
+                          <div className="flex items-center space-x-2">
+                            <Checkbox
+                              id="select-all"
+                              checked={
+                                selectedRows.size === parsedData.length &&
+                                parsedData.length > 0
+                              }
+                              onCheckedChange={(checked: boolean) =>
+                                handleSelectAll(checked)
+                              }
+                            />
+                            <label
+                              htmlFor="select-all"
+                              className="text-sm font-medium cursor-pointer"
+                            >
+                              Select All
+                            </label>
+                          </div>
+                        </div>
+                        <div className="max-h-96 overflow-auto border rounded-lg">
+                          <table className="w-full border-collapse">
+                            <thead className="bg-gray-50 sticky top-0">
+                              <tr>
+                                <th className="border border-gray-200 px-4 py-2 text-center text-sm font-medium w-12">
+                                  Select
+                                </th>
+                                <th className="border border-gray-200 px-4 py-2 text-left text-sm font-medium">
+                                  Reference
+                                </th>
+                                <th className="border border-gray-200 px-4 py-2 text-right text-sm font-medium">
+                                  Amount
+                                </th>
+                                <th className="border border-gray-200 px-4 py-2 text-left text-sm font-medium">
+                                  Account Number
+                                </th>
+                                <th className="border border-gray-200 px-4 py-2 text-left text-sm font-medium">
+                                  Description
+                                </th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {parsedData.slice(0, 50).map((row, index) => (
+                                <tr
+                                  key={index}
+                                  className={`hover:bg-gray-50 ${
+                                    selectedRows.has(index) ? "bg-blue-50" : ""
+                                  }`}
+                                >
+                                  <td className="border border-gray-200 px-4 py-2 text-center">
+                                    <Checkbox
+                                      checked={selectedRows.has(index)}
+                                      onCheckedChange={(checked: boolean) =>
+                                        handleRowSelection(index, checked)
+                                      }
+                                    />
+                                  </td>
+                                  <td className="border border-gray-200 px-4 py-2 text-sm font-mono">
+                                    {row.reference}
+                                  </td>
+                                  <td className="border border-gray-200 px-4 py-2 text-sm text-right font-mono">
+                                    {formatSerbianNumber(row.amount)}
+                                  </td>
+                                  <td className="border border-gray-200 px-4 py-2 text-sm font-mono">
+                                    {row.accountNumber}
+                                  </td>
+                                  <td className="border border-gray-200 px-4 py-2 text-sm">
+                                    {row.description}
+                                  </td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                        {parsedData.length > 50 && (
+                          <p className="text-sm text-gray-500 text-center">
+                            Showing first 50 rows of {parsedData.length} total
+                            rows
+                          </p>
+                        )}
+                        {selectedRows.size > 0 && (
+                          <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                            <p className="text-sm text-blue-800">
+                              <strong>{selectedRows.size}</strong> record(s)
+                              selected for import
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setIsImportModalOpen(false);
+                        setParsedData([]);
+                        setSelectedRows(new Set());
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                    {selectedRows.size > 0 && (
+                      <Button onClick={handleImportData}>
+                        Import {selectedRows.size} Selected Records
+                      </Button>
+                    )}
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="mb-4 flex items-center gap-2">
@@ -563,7 +872,9 @@ export default function UplatePage() {
                           {new Date(finansija.datum).toLocaleDateString()}
                         </td>
                         <td className="border border-border px-4 py-2">
-                          {finansija.valuta ? new Date(finansija.valuta).toLocaleDateString() : "-"}
+                          {finansija.valuta
+                            ? new Date(finansija.valuta).toLocaleDateString()
+                            : "-"}
                         </td>
                         <td className="border border-border px-4 py-2">
                           {finansija.napomena || "-"}
@@ -585,9 +896,12 @@ export default function UplatePage() {
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
-                                  <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                  <AlertDialogTitle>
+                                    Are you sure?
+                                  </AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This action cannot be undone. This will permanently delete this uplata record.
+                                    This action cannot be undone. This will
+                                    permanently delete this uplata record.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
@@ -608,11 +922,20 @@ export default function UplatePage() {
                 </tbody>
                 <tfoot>
                   <tr className="bg-muted/30 font-semibold">
-                    <td colSpan={2} className="border border-border px-4 py-3 text-right">
+                    <td
+                      colSpan={2}
+                      className="border border-border px-4 py-3 text-right"
+                    >
                       TOTAL:
                     </td>
                     <td className="border border-border px-4 py-3">
-                      {formatSerbianNumber(filteredFinansije.reduce((sum, f) => sum + Number(f.iznos || 0), 0))} RSD
+                      {formatSerbianNumber(
+                        filteredFinansije.reduce(
+                          (sum, f) => sum + Number(f.iznos || 0),
+                          0
+                        )
+                      )}{" "}
+                      RSD
                     </td>
                     <td colSpan={4} className="border border-border px-4 py-3">
                       {/* Empty cells for the remaining columns */}
