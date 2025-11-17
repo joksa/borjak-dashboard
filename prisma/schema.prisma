@@ -320,7 +320,7 @@ model liflet_finansije {
 model klijenti_racuni {
   id           Int      @id @default(autoincrement())
   Id_klijent   Int
-  tekuci_racun String?  @db.VarChar(18)
+  tekuci_racun String?  @db.VarChar(20)
   updated_at   DateTime @default(now()) @db.Timestamp(0)
   klijenti     klijenti @relation(fields: [Id_klijent], references: [ID_Klijent], onDelete: NoAction, onUpdate: NoAction, map: "klijenti_racuni_ibfk_1")
 

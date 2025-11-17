@@ -71,6 +71,13 @@ type ClientSearchResult = {
   PIB: string | null;
 };
 
+type ClientAccountResult = {
+  accountNumber: string;
+  ID_Klijent: number | null;
+  Naziv: string | null;
+  PIB: string | null;
+};
+
 export default function UplatePage() {
   const [finansije, setFinansije] = useState<LifletFinansije[]>([]);
   const [loading, setLoading] = useState(true);
@@ -215,28 +222,64 @@ export default function UplatePage() {
 
       // Extract fields based on positions
       const referenceNumber = line.substring(0, 18).trim(); // 0-17
+      const dateStr = line.substring(20, 28).trim(); // 20-27 (DD.MM.YY format)
       const amountStr = line.substring(90, 105).trim(); // 90-104
-      const accountNumber = line.substring(137, 157).trim(); // 137-156
+      const paymentReference = line.substring(137, 157).trim(); // 137-156
       const description = line.substring(159, 239).trim(); // 159-238
 
       // Format reference number as 3-13-2 digits
-      let formattedReference = "";
+      let formattedClientAccountNumber = "";
       if (referenceNumber.length >= 18) {
         const part1 = referenceNumber.substring(0, 3);
         const part2 = referenceNumber.substring(3, 16);
         const part3 = referenceNumber.substring(16, 18);
-        formattedReference = `${part1}-${part2}-${part3}`;
+        formattedClientAccountNumber = `${part1}-${part2}-${part3}`;
       } else {
-        formattedReference = referenceNumber;
+        formattedClientAccountNumber = referenceNumber;
       }
 
       // Parse amount (divide by 100)
       const amount = amountStr ? parseFloat(amountStr) / 100 : 0;
 
+      // Parse date from DD.MM.YY format
+      let formattedDate = "";
+      if (dateStr.length === 8 && dateStr.includes(".")) {
+        // DD.MM.YY format with dots
+        const parts = dateStr.split(".");
+        if (parts.length === 3) {
+          const day = parts[0].padStart(2, "0");
+          const month = parts[1].padStart(2, "0");
+          let year = parts[2];
+
+          // Convert 2-digit year to 4-digit
+          if (year.length === 2) {
+            const yearNum = parseInt(year);
+            year = yearNum < 50 ? `20${year}` : `19${year}`;
+          }
+
+          try {
+            const date = new Date(`${year}-${month}-${day}`);
+            if (!isNaN(date.getTime())) {
+              // Store as YYYY-MM-DD for reliable parsing later
+              formattedDate = date.toISOString().split("T")[0];
+            } else {
+              formattedDate = dateStr; // fallback to original if parsing fails
+            }
+          } catch {
+            formattedDate = dateStr; // fallback to original if parsing fails
+          }
+        } else {
+          formattedDate = dateStr; // fallback if not proper DD.MM.YY format
+        }
+      } else {
+        formattedDate = dateStr || ""; // fallback to empty string
+      }
+
       parsedRecords.push({
-        reference: formattedReference,
+        clientAccountNumber: formattedClientAccountNumber,
+        transactionDate: formattedDate,
         amount: amount,
-        accountNumber: accountNumber || "",
+        paymentReference: paymentReference || "",
         description: description || "",
         rawLine: line.trim(),
       });
@@ -255,7 +298,53 @@ export default function UplatePage() {
         return;
       }
 
-      setParsedData(parsedRecords);
+      // Extract unique client account numbers for client lookup
+      const accountNumbers = Array.from(
+        new Set(
+          parsedRecords
+            .map((record) => record.clientAccountNumber)
+            .filter((account) => account && account.trim().length > 0)
+        )
+      );
+
+      let enrichedRecords = parsedRecords;
+
+      // If we have account numbers, try to find client names
+      if (accountNumbers.length > 0) {
+        try {
+          const response = await fetch(
+            `/api/clients?accounts=${encodeURIComponent(
+              accountNumbers.join(",")
+            )}`
+          );
+          const clientData = await response.json();
+          console.log("clientData", clientData);
+          if (clientData.data && clientData.data.length > 0) {
+            // Create a map of account number to client info
+            const clientMap = new Map<string, ClientAccountResult>(
+              clientData.data.map((client: ClientAccountResult) => [
+                client.accountNumber,
+                client,
+              ])
+            );
+
+            // Add client names to parsed records
+            enrichedRecords = parsedRecords.map((record) => ({
+              ...record,
+              clientNaziv:
+                clientMap.get(record.clientAccountNumber)?.Naziv || null,
+              clientPIB: clientMap.get(record.clientAccountNumber)?.PIB || null,
+              clientID:
+                clientMap.get(record.clientAccountNumber)?.ID_Klijent || null,
+            }));
+          }
+        } catch (clientError) {
+          console.warn("Failed to fetch client data:", clientError);
+          // Continue without client data if the API call fails
+        }
+      }
+
+      setParsedData(enrichedRecords);
       setSelectedRows(new Set()); // Clear selection when new file is loaded
 
       toast.success(
@@ -296,13 +385,87 @@ export default function UplatePage() {
         return;
       }
 
-      // For now, just show a placeholder message with selected data count
-      // The actual import logic will be implemented based on how to map eBanking data to database
-      toast.info(
-        `Import functionality ready. Selected ${selectedData.length} records. Mapping logic to be implemented.`
-      );
+      // Filter out records without valid client IDs
+      const validRecords = selectedData.filter((record) => record.clientID);
 
-      console.log("Selected data for import:", selectedData);
+      if (validRecords.length === 0) {
+        toast.error(
+          "No valid records found with client information. Please ensure clients are properly matched."
+        );
+        return;
+      }
+
+      let successCount = 0;
+      let errorCount = 0;
+
+      // Process each valid record
+      for (const record of validRecords) {
+        try {
+          // Transaction date is already stored as YYYY-MM-DD format
+          const datum = record.transactionDate || "";
+
+          // Prepare payment data
+          const paymentData = {
+            Id_klijent: record.clientID.toString(),
+            dug: false, // Always false for uplate (payments/credits)
+            iznos: record.amount.toString(),
+            datum: datum,
+            valuta: "", // No due date for imported payments
+            napomena: `Imported from eBanking: ${
+              record.description || ""
+            }`.trim(),
+          };
+
+          console.log("Creating payment:", paymentData);
+
+          const response = await fetch("/api/liflet/finansije", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(paymentData),
+          });
+
+          if (response.ok) {
+            successCount++;
+          } else {
+            console.error(
+              `Failed to create payment for client ${record.clientNaziv}:`,
+              response.statusText
+            );
+            errorCount++;
+          }
+        } catch (recordError) {
+          console.error(
+            `Error processing record for client ${record.clientNaziv}:`,
+            recordError
+          );
+          errorCount++;
+        }
+      }
+
+      // Show results
+      if (successCount > 0) {
+        toast.success(
+          `Successfully imported ${successCount} payment${
+            successCount === 1 ? "" : "s"
+          }`
+        );
+        loadFinansije(); // Refresh the financial data
+      }
+
+      if (errorCount > 0) {
+        toast.error(
+          `Failed to import ${errorCount} payment${errorCount === 1 ? "" : "s"}`
+        );
+      }
+
+      if (selectedData.length > validRecords.length) {
+        const skippedCount = selectedData.length - validRecords.length;
+        toast.warning(
+          `${skippedCount} record${
+            skippedCount === 1 ? "" : "s"
+          } skipped due to missing client information`
+        );
+      }
 
       setIsImportModalOpen(false);
       setParsedData([]);
@@ -391,6 +554,22 @@ export default function UplatePage() {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     }).format(value);
+  };
+
+  // Serbian date formatting function (DD.MM.YYYY)
+  const formatSerbianDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      if (isNaN(date.getTime())) {
+        return dateString; // Return original if invalid
+      }
+      const day = date.getDate().toString().padStart(2, "0");
+      const month = (date.getMonth() + 1).toString().padStart(2, "0");
+      const year = date.getFullYear();
+      return `${day}.${month}.${year}`;
+    } catch {
+      return dateString; // Return original if parsing fails
+    }
   };
 
   // Months for filter dropdown
@@ -579,7 +758,7 @@ export default function UplatePage() {
                     Uvoz eBanking
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-4xl">
+                <DialogContent className="max-w-7xl">
                   <DialogHeader>
                     <DialogTitle>Uvoz eBanking podataka</DialogTitle>
                     <DialogDescription>
@@ -666,6 +845,12 @@ export default function UplatePage() {
                                 <th className="border border-gray-200 px-4 py-2 text-left text-sm font-medium">
                                   Reference
                                 </th>
+                                <th className="border border-gray-200 px-4 py-2 text-left text-sm font-medium">
+                                  Client Name
+                                </th>
+                                <th className="border border-gray-200 px-4 py-2 text-left text-sm font-medium">
+                                  Date
+                                </th>
                                 <th className="border border-gray-200 px-4 py-2 text-right text-sm font-medium">
                                   Amount
                                 </th>
@@ -678,7 +863,7 @@ export default function UplatePage() {
                               </tr>
                             </thead>
                             <tbody>
-                              {parsedData.slice(0, 50).map((row, index) => (
+                              {parsedData.map((row, index) => (
                                 <tr
                                   key={index}
                                   className={`hover:bg-gray-50 ${
@@ -694,15 +879,23 @@ export default function UplatePage() {
                                     />
                                   </td>
                                   <td className="border border-gray-200 px-4 py-2 text-sm font-mono">
-                                    {row.reference}
+                                    {row.clientAccountNumber}
+                                  </td>
+                                  <td className="border border-gray-200 px-4 py-2 text-sm min-w-48">
+                                    {row.clientNaziv || "-"}
+                                  </td>
+                                  <td className="border border-gray-200 px-4 py-2 text-sm">
+                                    {row.transactionDate
+                                      ? formatSerbianDate(row.transactionDate)
+                                      : "-"}
                                   </td>
                                   <td className="border border-gray-200 px-4 py-2 text-sm text-right font-mono">
                                     {formatSerbianNumber(row.amount)}
                                   </td>
                                   <td className="border border-gray-200 px-4 py-2 text-sm font-mono">
-                                    {row.accountNumber}
+                                    {row.paymentReference}
                                   </td>
-                                  <td className="border border-gray-200 px-4 py-2 text-sm">
+                                  <td className="border border-gray-200 px-4 py-2 text-sm max-w-48">
                                     {row.description}
                                   </td>
                                 </tr>

@@ -8,6 +8,45 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const search = searchParams.get("search") || "";
     const limit = parseInt(searchParams.get("limit") || "10");
+    const accounts = searchParams.get("accounts"); // New parameter for account numbers
+
+    // If accounts parameter is provided, search by account numbers
+    if (accounts) {
+      const accountNumbers = accounts.split(',').map(acc => acc.trim()).filter(acc => acc.length > 0);
+
+      if (accountNumbers.length === 0) {
+        return NextResponse.json({ data: [] });
+      }
+
+      const clients = await prisma.klijenti_racuni.findMany({
+        where: {
+          tekuci_racun: {
+            in: accountNumbers
+          }
+        },
+        include: {
+          klijenti: {
+            select: {
+              ID_Klijent: true,
+              Naziv: true,
+              PIB: true
+            }
+          }
+        }
+      });
+
+      // Transform to match expected format
+      const result = clients.map(client => ({
+        accountNumber: client.tekuci_racun,
+        ID_Klijent: client.klijenti?.ID_Klijent,
+        Naziv: client.klijenti?.Naziv,
+        PIB: client.klijenti?.PIB
+      }));
+
+      return NextResponse.json({
+        data: result,
+      });
+    }
 
     // Split search into words and create AND conditions for each word
     const searchWords = search
