@@ -26,6 +26,13 @@ export async function GET(request: NextRequest) {
             DESCRIPTION: true,
             BAR_CODE: true
           }
+        },
+        klijenti: {
+          select: {
+            ID_Klijent: true,
+            Naziv: true,
+            PIB: true
+          }
         }
       },
       orderBy: {
@@ -48,12 +55,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { liflet_id, Id_artikal, cena_akcija, cena_redovna } = body
+    const { liflet_id, Id_artikal, ID_Klijent, cena_akcija, cena_redovna } = body
 
     const detalj = await prisma.liflet_detalji.create({
       data: {
         liflet_id: parseInt(liflet_id),
         Id_artikal: parseInt(Id_artikal),
+        ID_Klijent: ID_Klijent ? parseInt(ID_Klijent) : null,
         cena_akcija: cena_akcija ? parseFloat(cena_akcija) : null,
         cena_redovna: cena_redovna ? parseFloat(cena_redovna) : null
       },
@@ -63,6 +71,13 @@ export async function POST(request: NextRequest) {
             Id_Artikal: true,
             DESCRIPTION: true,
             BAR_CODE: true
+          }
+        },
+        klijenti: {
+          select: {
+            ID_Klijent: true,
+            Naziv: true,
+            PIB: true
           }
         }
       }

@@ -18,14 +18,6 @@ export async function GET(request: NextRequest) {
     } as Prisma.liflet_zaglavljeOrderByWithRelationInput
 
     const liflets = await prisma.liflet_zaglavlje.findMany({
-      include: {
-        klijenti: {
-          select: {
-            ID_Klijent: true,
-            Naziv: true
-          }
-        }
-      },
       orderBy,
       skip: offset,
       take: limit
@@ -54,22 +46,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { datum_od, datum_do, ID_Klijent, op_id } = body
+    const { datum_od, datum_do, op_id } = body
 
     const liflet = await prisma.liflet_zaglavlje.create({
       data: {
         datum_od: new Date(datum_od),
         datum_do: new Date(datum_do),
-        ID_Klijent: ID_Klijent ? parseInt(ID_Klijent) : null,
         op_id: op_id ? parseInt(op_id) : null
-      },
-      include: {
-        klijenti: {
-          select: {
-            ID_Klijent: true,
-            Naziv: true
-          }
-        }
       }
     })
 

@@ -12,15 +12,7 @@ export async function GET(
     const parsedId = parseInt(id)
 
     const liflet = await prisma.liflet_zaglavlje.findUnique({
-      where: { id: parsedId },
-      include: {
-        klijenti: {
-          select: {
-            ID_Klijent: true,
-            Naziv: true
-          }
-        }
-      }
+      where: { id: parsedId }
     })
 
     if (!liflet) {
@@ -48,23 +40,14 @@ export async function PUT(
     const { id } = await params
     const parsedId = parseInt(id)
     const body = await request.json()
-    const { datum_od, datum_do, ID_Klijent, op_id } = body
+    const { datum_od, datum_do, op_id } = body
 
     const liflet = await prisma.liflet_zaglavlje.update({
       where: { id: parsedId },
       data: {
         datum_od: datum_od ? new Date(datum_od) : undefined,
         datum_do: datum_do ? new Date(datum_do) : undefined,
-        ID_Klijent: ID_Klijent ? parseInt(ID_Klijent) : null,
         op_id: op_id ? parseInt(op_id) : null
-      },
-      include: {
-        klijenti: {
-          select: {
-            ID_Klijent: true,
-            Naziv: true
-          }
-        }
       }
     })
 

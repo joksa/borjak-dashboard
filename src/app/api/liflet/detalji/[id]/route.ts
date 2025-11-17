@@ -21,6 +21,13 @@ export async function GET(
             BAR_CODE: true,
           },
         },
+        klijenti: {
+          select: {
+            ID_Klijent: true,
+            Naziv: true,
+            PIB: true,
+          },
+        },
       },
     });
 
@@ -49,13 +56,14 @@ export async function PUT(
     const { id } = await params;
     const parsedId = parseInt(id);
     const body = await request.json();
-    const { liflet_id, Id_artikal, cena_akcija, cena_redovna } = body;
+    const { liflet_id, Id_artikal, ID_Klijent, cena_akcija, cena_redovna } = body;
 
     const detalj = await prisma.liflet_detalji.update({
       where: { id: parsedId },
       data: {
         liflet_id: liflet_id ? parseInt(liflet_id) : undefined,
         Id_artikal: Id_artikal ? parseInt(Id_artikal) : undefined,
+        ID_Klijent: ID_Klijent ? parseInt(ID_Klijent) : null,
         cena_akcija: cena_akcija ? parseFloat(cena_akcija) : null,
         cena_redovna: cena_redovna ? parseFloat(cena_redovna) : null,
       },
@@ -65,6 +73,13 @@ export async function PUT(
             Id_Artikal: true,
             DESCRIPTION: true,
             BAR_CODE: true,
+          },
+        },
+        klijenti: {
+          select: {
+            ID_Klijent: true,
+            Naziv: true,
+            PIB: true,
           },
         },
       },

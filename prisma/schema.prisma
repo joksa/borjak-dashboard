@@ -1,6 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -170,6 +167,7 @@ model klijenti {
   Drzava           String?            @db.VarChar(255)
   Povezano_Lice    Boolean?
   Puni_Naziv       String?            @db.VarChar(255)
+  liflet_detalji   liflet_detalji[]
   liflet_zaglavlje liflet_zaglavlje[]
 }
 
@@ -293,9 +291,12 @@ model liflet_detalji {
   Id_artikal       Int
   cena_akcija      Decimal?         @db.Decimal(10, 2)
   cena_redovna     Decimal?         @db.Decimal(10, 2)
+  ID_Klijent       Int?
   liflet_zaglavlje liflet_zaglavlje @relation(fields: [liflet_id], references: [id], onDelete: Cascade, map: "liflet_detalji_ibfk_1")
   artikli          artikli          @relation(fields: [Id_artikal], references: [Id_Artikal], onDelete: NoAction, onUpdate: NoAction, map: "liflet_detalji_ibfk_2")
+  klijenti         klijenti?        @relation(fields: [ID_Klijent], references: [ID_Klijent], onDelete: NoAction, onUpdate: NoAction, map: "liflet_detalji_ibfk_3")
 
+  @@index([ID_Klijent], map: "ID_Klijent_detalji")
   @@index([Id_artikal], map: "Id_artikal")
   @@index([liflet_id], map: "liflet_id")
 }
