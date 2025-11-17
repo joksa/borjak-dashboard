@@ -40,6 +40,9 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Upload,
+  X,
+  Image as ImageIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -57,6 +60,7 @@ type LifletDetalji = {
   ID_Klijent: number | null;
   cena_akcija: number | null;
   cena_redovna: number | null;
+  image: string | null;
   artikli?: {
     Id_Artikal: number;
     DESCRIPTION: string | null;
@@ -83,7 +87,16 @@ export default function LifletPage() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [articleSearchTerm, setArticleSearchTerm] = useState("");
-  const [searchedArticles, setSearchedArticles] = useState<any[]>([]);
+  const [searchedArticles, setSearchedArticles] = useState<
+    Array<{
+      Id_Artikal: number;
+      DESCRIPTION: string | null;
+      BAR_CODE: string | null;
+      PRICE: string | null;
+      hasImage: boolean;
+      image: string | null;
+    }>
+  >([]);
   const [showArticleDropdown, setShowArticleDropdown] = useState(false);
   const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [searchedClients, setSearchedClients] = useState<any[]>([]);
@@ -121,6 +134,9 @@ export default function LifletPage() {
     cena_redovna: "",
     selectedArticle: null as any,
     selectedClient: null as any,
+    image: null as File | null,
+    imagePreview: null as string | null,
+    existingImage: null as string | null,
   });
 
   useEffect(() => {
@@ -256,11 +272,79 @@ export default function LifletPage() {
       cena_redovna: "",
       selectedArticle: null,
       selectedClient: null,
+      image: null,
+      imagePreview: null,
+      existingImage: null,
     });
     setArticleSearchTerm("");
     setSearchedArticles([]);
     setClientSearchTerm("");
     setSearchedClients([]);
+  };
+
+  // Image handling functions
+  const handleImageSelect = (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select a valid image file");
+      return;
+    }
+
+    setDetailFormData((prev) => ({
+      ...prev,
+      image: file,
+      imagePreview: URL.createObjectURL(file),
+    }));
+  };
+
+  const handleImageDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleImageSelect(files[0]);
+    }
+  };
+
+  const handleImageDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+  };
+
+  const removeImage = () => {
+    if (detailFormData.imagePreview) {
+      URL.revokeObjectURL(detailFormData.imagePreview);
+    }
+    setDetailFormData((prev) => ({
+      ...prev,
+      image: null,
+      imagePreview: null,
+      existingImage: null,
+    }));
+  };
+
+  const uploadImage = async (): Promise<string | null> => {
+    if (!detailFormData.image || !detailFormData.Id_artikal) return null;
+
+    try {
+      const formData = new FormData();
+      formData.append("file", detailFormData.image);
+      formData.append("idArtikal", detailFormData.Id_artikal);
+
+      const response = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return result.filename;
+      } else {
+        toast.error("Failed to upload image");
+        return null;
+      }
+    } catch (error) {
+      console.error("Error uploading image:", error);
+      toast.error("Failed to upload image");
+      return null;
+    }
   };
 
   const searchArticles = async (search: string) => {
@@ -328,6 +412,17 @@ export default function LifletPage() {
       return;
 
     try {
+      let imageFilename = null;
+
+      // Upload image if one is selected
+      if (detailFormData.image) {
+        imageFilename = await uploadImage();
+        if (!imageFilename) {
+          // Upload failed, but continue without image
+          toast.warning("Image upload failed, but continuing without image");
+        }
+      }
+
       const response = await fetch("/api/liflet/detalji", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -337,6 +432,7 @@ export default function LifletPage() {
           ID_Klijent: detailFormData.ID_Klijent,
           cena_akcija: detailFormData.cena_akcija || null,
           cena_redovna: detailFormData.cena_redovna || null,
+          image: imageFilename,
         }),
       });
 
@@ -358,6 +454,24 @@ export default function LifletPage() {
     if (!editingDetail) return;
 
     try {
+      let imageFilename = detailFormData.existingImage;
+
+      // Upload new image if one is selected
+      if (detailFormData.image) {
+        const uploadedFilename = await uploadImage();
+        if (uploadedFilename) {
+          imageFilename = uploadedFilename;
+        } else {
+          // Upload failed, but continue without updating image
+          toast.warning(
+            "Image upload failed, but continuing without image update"
+          );
+        }
+      } else if (detailFormData.existingImage === null) {
+        // Image was removed
+        imageFilename = null;
+      }
+
       const response = await fetch(`/api/liflet/detalji/${editingDetail.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
@@ -366,6 +480,7 @@ export default function LifletPage() {
           ID_Klijent: detailFormData.ID_Klijent,
           cena_akcija: detailFormData.cena_akcija || null,
           cena_redovna: detailFormData.cena_redovna || null,
+          image: imageFilename,
         }),
       });
 
@@ -419,6 +534,9 @@ export default function LifletPage() {
         : "",
       selectedArticle: detail.artikli,
       selectedClient: detail.klijenti,
+      image: null,
+      imagePreview: null,
+      existingImage: detail.image,
     });
     setArticleSearchTerm(
       detail.artikli
@@ -752,20 +870,40 @@ export default function LifletPage() {
                             {searchedArticles.map((article) => (
                               <div
                                 key={article.Id_Artikal}
-                                className="px-4 py-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
+                                className="px-4 py-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0 flex items-center gap-3"
                                 onClick={() => selectArticle(article)}
                               >
-                                <div className="font-medium">
-                                  {article.DESCRIPTION}
+                                <div className="flex-shrink-0">
+                                  {article.hasImage && article.image ? (
+                                    <img
+                                      src={`/images/${article.image}`}
+                                      alt={article.DESCRIPTION || "Article"}
+                                      className="w-16 h-12 object-contain rounded border"
+                                    />
+                                  ) : (
+                                    <div className="w-16 h-12 bg-muted rounded border flex items-center justify-center">
+                                      <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="text-sm text-muted-foreground">
-                                  Code: {article.BAR_CODE}
-                                </div>
-                                {article.PRICE && (
-                                  <div className="text-sm text-muted-foreground">
-                                    Price: €{article.PRICE}
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">
+                                    {article.DESCRIPTION}
                                   </div>
-                                )}
+                                  <div className="text-sm text-muted-foreground">
+                                    Code: {article.BAR_CODE}
+                                  </div>
+                                  {article.PRICE && (
+                                    <div className="text-sm text-muted-foreground">
+                                      Price: {article.PRICE}
+                                    </div>
+                                  )}
+                                  {article.hasImage && (
+                                    <div className="text-xs text-green-600 font-medium mt-1">
+                                      ✓ Has image
+                                    </div>
+                                  )}
+                                </div>
                               </div>
                             ))}
                           </div>
@@ -845,6 +983,69 @@ export default function LifletPage() {
                         placeholder="0.00"
                       />
                     </div>
+                    <div className="grid grid-cols-4 items-start gap-4">
+                      <Label className="text-right pt-2">Image</Label>
+                      <div className="col-span-3">
+                        <div
+                          className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                          onDrop={handleImageDrop}
+                          onDragOver={handleImageDragOver}
+                          onClick={() =>
+                            document.getElementById("image-input")?.click()
+                          }
+                        >
+                          {detailFormData.imagePreview ? (
+                            <div className="relative">
+                              <img
+                                src={detailFormData.imagePreview}
+                                alt="Preview"
+                                className="max-w-full max-h-32 mx-auto rounded"
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-2 right-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeImage();
+                                }}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <ImageIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                              <p className="text-sm text-muted-foreground mb-1">
+                                Drag & drop an image here, or click to select
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Image will be saved as{" "}
+                                {detailFormData.Id_artikal || "ID_artikal"}.
+                                {detailFormData.image?.name.split(".").pop() ||
+                                  "extension"}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          id="image-input"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleImageSelect(file);
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Optional: Upload an image for this article
+                        </p>
+                      </div>
+                    </div>
                   </div>
                   <DialogFooter>
                     <Button
@@ -891,6 +1092,9 @@ export default function LifletPage() {
                         <th className="border border-border px-4 py-2 text-left">
                           Promo Price
                         </th>
+                        <th className="border border-border px-4 py-2 text-left w-32">
+                          Image
+                        </th>
                         <th className="border border-border px-4 py-2 text-left">
                           Actions
                         </th>
@@ -906,17 +1110,20 @@ export default function LifletPage() {
                         )
                         .map((detalj) => (
                           <tr key={detalj.id} className="hover:bg-muted">
-                            <td className="border border-border px-4 py-2 w-fit min-w-0">
+                            <td className="border border-border px-4 py-2 w-64 min-w-0">
                               <div>
                                 <div className="font-medium">
                                   {detalj.artikli?.DESCRIPTION}
                                 </div>
                                 <div className="text-sm text-muted-foreground">
-                                  Code: {detalj.artikli?.BAR_CODE}
+                                  {detalj.artikli?.Id_Artikal}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {detalj.artikli?.BAR_CODE}
                                 </div>
                               </div>
                             </td>
-                            <td className="border border-border px-4 py-2 w-fit min-w-0">
+                            <td className="border border-border px-4 py-2 min-w-0 w-64">
                               <div>
                                 <div className="font-medium">
                                   {detalj.klijenti?.Naziv}
@@ -928,13 +1135,35 @@ export default function LifletPage() {
                             </td>
                             <td className="border border-border px-4 py-2">
                               {detalj.cena_redovna
-                                ? `€${Number(detalj.cena_redovna).toFixed(2)}`
+                                ? `${Number(detalj.cena_redovna).toFixed(2)}`
                                 : "-"}
                             </td>
                             <td className="border border-border px-4 py-2">
                               {detalj.cena_akcija
-                                ? `€${Number(detalj.cena_akcija).toFixed(2)}`
+                                ? `${Number(detalj.cena_akcija).toFixed(2)}`
                                 : "-"}
+                            </td>
+                            <td className="border border-border px-4 py-2 w-32 justify-center items-center">
+                              {detalj.image ? (
+                                <img
+                                  src={`/images/${detalj.image}`}
+                                  alt={
+                                    detalj.artikli?.DESCRIPTION ||
+                                    "Article image"
+                                  }
+                                  className="w-16 h-16 object-contain rounded cursor-pointer hover:opacity-80 mx-auto"
+                                  onClick={() =>
+                                    window.open(
+                                      `/images/${detalj.image}`,
+                                      "_blank"
+                                    )
+                                  }
+                                />
+                              ) : (
+                                <div className="w-16 h-16 bg-muted rounded flex items-center justify-center">
+                                  <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                                </div>
+                              )}
                             </td>
                             <td className="border border-border px-4 py-2">
                               <div className="flex space-x-2">
@@ -1130,6 +1359,92 @@ export default function LifletPage() {
                 className="col-span-3"
                 placeholder="0.00"
               />
+            </div>
+            <div className="grid grid-cols-4 items-start gap-4">
+              <Label className="text-right pt-2">Image</Label>
+              <div className="col-span-3">
+                <div
+                  className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                  onDrop={handleImageDrop}
+                  onDragOver={handleImageDragOver}
+                  onClick={() =>
+                    document.getElementById("edit-image-input")?.click()
+                  }
+                >
+                  {detailFormData.imagePreview ? (
+                    <div className="relative">
+                      <img
+                        src={detailFormData.imagePreview}
+                        alt="Preview"
+                        className="max-w-full max-h-32 mx-auto rounded"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeImage();
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : detailFormData.existingImage ? (
+                    <div className="relative">
+                      <img
+                        src={`/images/${detailFormData.existingImage}`}
+                        alt="Existing"
+                        className="max-w-full max-h-32 mx-auto rounded"
+                      />
+                      <Button
+                        type="button"
+                        variant="destructive"
+                        size="sm"
+                        className="absolute top-2 right-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          removeImage();
+                        }}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Current image: {detailFormData.existingImage}
+                      </p>
+                    </div>
+                  ) : (
+                    <div>
+                      <ImageIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                      <p className="text-sm text-muted-foreground mb-1">
+                        Drag & drop an image here, or click to select
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        Image will be saved as{" "}
+                        {detailFormData.Id_artikal || "ID_artikal"}.
+                        {detailFormData.image?.name.split(".").pop() ||
+                          "extension"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+                <input
+                  id="edit-image-input"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) {
+                      handleImageSelect(file);
+                    }
+                  }}
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Optional: Upload a new image or remove the existing one
+                </p>
+              </div>
             </div>
           </div>
           <DialogFooter>

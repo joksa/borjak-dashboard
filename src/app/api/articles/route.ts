@@ -53,6 +53,17 @@ export async function GET(request: NextRequest) {
         DESCRIPTION: true,
         BAR_CODE: true,
         PRICE: true,
+        liflet_detalji: {
+          select: {
+            image: true,
+          },
+          where: {
+            image: {
+              not: null,
+            },
+          },
+          take: 1, // Just need to know if at least one exists
+        },
       },
       orderBy: {
         DESCRIPTION: "asc",
@@ -60,8 +71,21 @@ export async function GET(request: NextRequest) {
       take: limit,
     });
 
+    // Transform the data to include image info
+    const articlesWithImageInfo = articles.map((article) => ({
+      Id_Artikal: article.Id_Artikal,
+      DESCRIPTION: article.DESCRIPTION,
+      BAR_CODE: article.BAR_CODE,
+      PRICE: article.PRICE,
+      hasImage: article.liflet_detalji.length > 0,
+      image:
+        article.liflet_detalji.length > 0
+          ? article.liflet_detalji[0].image
+          : null,
+    }));
+
     return NextResponse.json({
-      data: articles,
+      data: articlesWithImageInfo,
     });
   } catch (error) {
     console.error("Error searching articles:", error);

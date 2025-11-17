@@ -56,7 +56,7 @@ export async function PUT(
     const { id } = await params;
     const parsedId = parseInt(id);
     const body = await request.json();
-    const { liflet_id, Id_artikal, ID_Klijent, cena_akcija, cena_redovna } = body;
+    const { liflet_id, Id_artikal, ID_Klijent, cena_akcija, cena_redovna, image } = body;
 
     const detalj = await prisma.liflet_detalji.update({
       where: { id: parsedId },
@@ -66,6 +66,7 @@ export async function PUT(
         ID_Klijent: ID_Klijent ? parseInt(ID_Klijent) : null,
         cena_akcija: cena_akcija ? parseFloat(cena_akcija) : null,
         cena_redovna: cena_redovna ? parseFloat(cena_redovna) : null,
+        image: image !== undefined ? image : undefined,
       },
       include: {
         artikli: {

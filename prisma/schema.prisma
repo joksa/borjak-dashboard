@@ -292,6 +292,7 @@ model liflet_detalji {
   cena_akcija      Decimal?         @db.Decimal(10, 2)
   cena_redovna     Decimal?         @db.Decimal(10, 2)
   ID_Klijent       Int?
+  image            String?          @db.VarChar(255)
   liflet_zaglavlje liflet_zaglavlje @relation(fields: [liflet_id], references: [id], onDelete: Cascade, map: "liflet_detalji_ibfk_1")
   artikli          artikli          @relation(fields: [Id_artikal], references: [Id_Artikal], onDelete: NoAction, onUpdate: NoAction, map: "liflet_detalji_ibfk_2")
   klijenti         klijenti?        @relation(fields: [ID_Klijent], references: [ID_Klijent], onDelete: NoAction, onUpdate: NoAction, map: "liflet_detalji_ibfk_3")

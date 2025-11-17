@@ -55,7 +55,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { liflet_id, Id_artikal, ID_Klijent, cena_akcija, cena_redovna } = body
+    const { liflet_id, Id_artikal, ID_Klijent, cena_akcija, cena_redovna, image } = body
 
     const detalj = await prisma.liflet_detalji.create({
       data: {
@@ -63,7 +63,8 @@ export async function POST(request: NextRequest) {
         Id_artikal: parseInt(Id_artikal),
         ID_Klijent: ID_Klijent ? parseInt(ID_Klijent) : null,
         cena_akcija: cena_akcija ? parseFloat(cena_akcija) : null,
-        cena_redovna: cena_redovna ? parseFloat(cena_redovna) : null
+        cena_redovna: cena_redovna ? parseFloat(cena_redovna) : null,
+        image: image || null
       },
       include: {
         artikli: {
