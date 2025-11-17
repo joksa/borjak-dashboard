@@ -9,6 +9,7 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@fontsource/noto-sans": "^5.2.10",
     "@hookform/resolvers": "^5.2.2",
     "@prisma/client": "^6.19.0",
     "@radix-ui/react-alert-dialog": "^1.1.15",
@@ -27,6 +28,9 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "dotenv": "^17.2.3",
+    "html2canvas": "^1.4.1",
+    "jspdf": "^3.0.3",
+    "jspdf-autotable": "^5.0.2",
     "lucide-react": "^0.553.0",
     "multer": "^2.0.2",
     "next": "^16.0.3",

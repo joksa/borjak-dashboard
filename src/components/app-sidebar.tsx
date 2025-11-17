@@ -166,7 +166,6 @@ export function AppSidebar() {
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Avatar className="h-8 w-8 cursor-pointer">
-                <AvatarImage src="" alt="User" />
                 <AvatarFallback>AD</AvatarFallback>
               </Avatar>
             </DropdownMenuTrigger>

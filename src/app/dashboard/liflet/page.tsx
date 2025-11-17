@@ -43,8 +43,12 @@ import {
   Upload,
   X,
   Image as ImageIcon,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import html2canvas from "html2canvas";
 
 type LifletZaglavlje = {
   id: number;
@@ -323,6 +327,167 @@ export default function LifletPage() {
     }));
   };
 
+  const exportToPDF = async () => {
+    if (!selectedLiflet) return;
+
+    try {
+      // Create HTML content with proper Serbian characters and images
+      const filteredData = lifletDetalji.filter((detalj) => {
+        const matchesSearch =
+          !searchTerm ||
+          detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
+            searchTerm.toLowerCase()
+          ) ||
+          detalj.artikli?.BAR_CODE?.includes(searchTerm);
+
+        const matchesClient =
+          clientFilter === "all" || detalj.klijenti?.Naziv === clientFilter;
+
+        return matchesSearch && matchesClient;
+      });
+
+      // Create HTML content
+      const htmlContent = `
+        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
+          <div style="display: flex; align-items: center; margin-bottom: 30px;">
+            <img src="/logo.png" alt="Logo" style="width: 80px; height: 80px; margin-right: 20px;" onerror="this.style.display='none'" />
+            <div>
+              <h1 style="margin: 0; font-size: 24px; font-weight: bold;">BORJAK ZTR</h1>
+              <p style="margin: 5px 0; font-size: 14px;">Todorovića 7</p>
+              <p style="margin: 5px 0; font-size: 14px;">Kraljevo</p>
+              <p style="margin: 5px 0; font-size: 14px;">PIB: 104069152</p>
+            </div>
+          </div>
+
+          <h2 style="margin-bottom: 20px; font-size: 18px;">
+            Liflet: ${new Date(selectedLiflet.datum_od).toLocaleDateString(
+              "sr-RS"
+            )} -
+            ${new Date(selectedLiflet.datum_do).toLocaleDateString("sr-RS")}
+          </h2>
+
+          ${
+            clientFilter !== "all"
+              ? `<p style="margin-bottom: 20px; font-size: 14px;">Filter by Client: ${clientFilter}</p>`
+              : ""
+          }
+
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+            <thead>
+              <tr style="background-color: #428bca; color: white;">
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Image</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Article</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Code</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Client</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Regular Price</th>
+                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Promo Price</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${filteredData
+                .map(
+                  (detalj, index) => `
+                <tr style="background-color: ${
+                  index % 2 === 0 ? "#ffffff" : "#f5f5f5"
+                };">
+                  <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
+                    ${
+                      detalj.image
+                        ? `<img src="/images/${detalj.image}" alt="Product" style="max-width: 40px; max-height: 40px; object-fit: contain;" />`
+                        : '<div style="width: 40px; height: 40px; background-color: #f0f0f0; display: inline-flex; align-items: center; justify-content: center;">📷</div>'
+                    }
+                  </td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${
+                    detalj.artikli?.DESCRIPTION || ""
+                  }</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${
+                    detalj.artikli?.BAR_CODE || ""
+                  }</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${
+                    detalj.klijenti?.Naziv || ""
+                  }</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${
+                    detalj.cena_redovna
+                      ? Number(detalj.cena_redovna).toFixed(2)
+                      : ""
+                  }</td>
+                  <td style="padding: 8px; border: 1px solid #ddd;">${
+                    detalj.cena_akcija
+                      ? Number(detalj.cena_akcija).toFixed(2)
+                      : ""
+                  }</td>
+                </tr>
+              `
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      `;
+
+      // Create a temporary element to render
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = htmlContent;
+      tempDiv.style.position = "absolute";
+      tempDiv.style.left = "-9999px";
+      tempDiv.style.top = "-9999px";
+      document.body.appendChild(tempDiv);
+
+      // Use html2canvas to render the HTML
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        width: 800,
+        height: tempDiv.scrollHeight,
+      });
+
+      // Remove temporary element
+      document.body.removeChild(tempDiv);
+
+      // Create PDF from canvas
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 295; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add additional pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Save the PDF
+      const fileName = `liflet_${selectedLiflet.id}_${
+        clientFilter !== "all"
+          ? clientFilter.replace(/[^a-zA-Z0-9]/g, "_")
+          : "all"
+      }.pdf`;
+      pdf.save(fileName);
+
+      toast.success("PDF exported successfully");
+    } catch (error) {
+      console.error("Error generating PDF:", error);
+      toast.error("Failed to export PDF");
+    }
+  };
+
   const uploadImage = async (): Promise<string | null> => {
     if (!detailFormData.image || !detailFormData.Id_artikal) return null;
 
@@ -572,9 +737,9 @@ export default function LifletPage() {
   };
 
   return (
-    <div className="flex flex-col lg:flex-row gap-6 w-full min-h-0">
+    <div className="flex flex-col gap-6 w-full">
       {/* Left Side - Liflet Zaglavlje */}
-      <div className="flex-1">
+      <div className="flex-1 w-full">
         <Card className="w-full h-full">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Liflet Management</CardTitle>
@@ -670,7 +835,7 @@ export default function LifletPage() {
                 <thead>
                   <tr className="bg-muted/50">
                     <th
-                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted"
+                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-20"
                       onClick={() => handleSort("id")}
                     >
                       <div className="flex items-center space-x-1">
@@ -679,7 +844,7 @@ export default function LifletPage() {
                       </div>
                     </th>
                     <th
-                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted"
+                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-32"
                       onClick={() => handleSort("datum_od")}
                     >
                       <div className="flex items-center space-x-1">
@@ -688,7 +853,7 @@ export default function LifletPage() {
                       </div>
                     </th>
                     <th
-                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted"
+                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-32"
                       onClick={() => handleSort("datum_do")}
                     >
                       <div className="flex items-center space-x-1">
@@ -696,7 +861,7 @@ export default function LifletPage() {
                         {getSortIcon("datum_do")}
                       </div>
                     </th>
-                    <th className="border border-border px-4 py-2 text-left">
+                    <th className="border border-border px-4 py-2 text-left w-32">
                       Actions
                     </th>
                   </tr>
@@ -735,16 +900,16 @@ export default function LifletPage() {
                           setSearchTerm("");
                         }}
                       >
-                        <td className="border border-border px-4 py-2">
+                        <td className="border border-border px-4 py-2 w-20">
                           {liflet.id}
                         </td>
-                        <td className="border border-border px-4 py-2">
+                        <td className="border border-border px-4 py-2 w-32">
                           {new Date(liflet.datum_od).toLocaleDateString()}
                         </td>
-                        <td className="border border-border px-4 py-2">
+                        <td className="border border-border px-4 py-2 w-32">
                           {new Date(liflet.datum_do).toLocaleDateString()}
                         </td>
-                        <td className="border border-border px-4 py-2">
+                        <td className="border border-border px-4 py-2 w-32">
                           <div className="flex space-x-2">
                             <Button
                               variant="outline"
@@ -829,7 +994,7 @@ export default function LifletPage() {
       </div>
 
       {/* Right Side - Liflet Detalji */}
-      <div className="flex-2">
+      <div className="flex-1 w-full">
         <Card className="w-full h-full">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>
@@ -1104,28 +1269,37 @@ export default function LifletPage() {
                         ))}
                     </SelectContent>
                   </Select>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={exportToPDF}
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Export PDF
+                  </Button>
                 </div>
 
                 <div className="overflow-x-auto w-full">
                   <table className="w-full border-collapse border border-border">
                     <thead>
                       <tr className="bg-muted/50">
-                        <th className="border border-border px-2 py-2 text-left w-24 sm:w-32 md:w-48 lg:w-fit min-w-0">
+                        <th className="border border-border px-2 py-2 text-left w-64">
                           Article
                         </th>
-                        <th className="border border-border px-2 py-2 text-left w-24 sm:w-32 md:w-48 lg:w-fit min-w-0">
+                        <th className="border border-border px-2 py-2 text-left w-48">
                           Client
                         </th>
-                        <th className="border border-border px-4 py-2 text-left">
+                        <th className="border border-border px-4 py-2 text-left w-24">
                           Regular Price
                         </th>
-                        <th className="border border-border px-4 py-2 text-left">
+                        <th className="border border-border px-4 py-2 text-left w-24">
                           Promo Price
                         </th>
-                        <th className="border border-border px-2 py-2 text-left w-16 sm:w-20 md:w-24 lg:w-32">
+                        <th className="border border-border px-2 py-2 text-left w-20">
                           Image
                         </th>
-                        <th className="border border-border px-2 py-2 text-left">
+                        <th className="border border-border px-2 py-2 text-left w-32">
                           Actions
                         </th>
                       </tr>
@@ -1150,7 +1324,7 @@ export default function LifletPage() {
                         })
                         .map((detalj) => (
                           <tr key={detalj.id} className="hover:bg-muted">
-                            <td className="border border-border px-2 py-2 w-24 sm:w-32 md:w-48 lg:w-64 min-w-0">
+                            <td className="border border-border px-2 py-2 w-64">
                               <div>
                                 <div className="font-medium">
                                   {detalj.artikli?.DESCRIPTION}
@@ -1163,7 +1337,7 @@ export default function LifletPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="border border-border px-2 py-2 w-24 sm:w-32 md:w-48 lg:w-64 min-w-0">
+                            <td className="border border-border px-2 py-2 w-48">
                               <div>
                                 <div className="font-medium">
                                   {detalj.klijenti?.Naziv}
@@ -1173,17 +1347,17 @@ export default function LifletPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="border border-border px-2 py-2">
+                            <td className="border border-border px-2 py-2 w-24">
                               {detalj.cena_redovna
                                 ? `${Number(detalj.cena_redovna).toFixed(2)}`
                                 : "-"}
                             </td>
-                            <td className="border border-border px-2 py-2">
+                            <td className="border border-border px-2 py-2 w-24">
                               {detalj.cena_akcija
                                 ? `${Number(detalj.cena_akcija).toFixed(2)}`
                                 : "-"}
                             </td>
-                            <td className="border border-border px-2 py-2 w-16 sm:w-20 md:w-24 lg:w-32 justify-center items-center">
+                            <td className="border border-border px-2 py-2 w-20 justify-center items-center">
                               {detalj.image ? (
                                 <img
                                   src={`/images/${detalj.image}`}
