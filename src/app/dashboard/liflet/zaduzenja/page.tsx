@@ -326,11 +326,11 @@ export default function ZaduzenjaPage() {
 
   return (
     <div className="flex flex-col gap-6 w-full">
-      {/* Zaduzenja Details */}
+      {/* Detalji o zaduženjima */}
       <div className="w-full">
         <Card className="w-full h-full">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Zaduzenja Details</CardTitle>
+          <CardHeader className="flex flex-row items-center justify-between ">
+            <CardTitle>Detalji o zaduženjima</CardTitle>
             <Dialog
               open={isCreateModalOpen}
               onOpenChange={setIsCreateModalOpen}
@@ -338,25 +338,25 @@ export default function ZaduzenjaPage() {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="w-4 h-4 mr-2" />
-                  Add Zaduzenje
+                  Dodaj Zaduženje
                 </Button>
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-2xl">
                 <DialogHeader>
-                  <DialogTitle>Add New Zaduzenje</DialogTitle>
+                  <DialogTitle>Dodaj Novo Zaduženje</DialogTitle>
                   <DialogDescription>
-                    Add a new debt/liability record.
+                    Dodaj novo zaduženje/obavezu.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <label htmlFor="client_search" className="text-right">
-                      Client
+                      Klijent
                     </label>
                     <div className="col-span-3 relative">
                       <Input
                         id="client_search"
-                        placeholder="Type to search clients..."
+                        placeholder="Pretražite klijente..."
                         value={clientSearchTerm}
                         onChange={(e) => {
                           setClientSearchTerm(e.target.value);
@@ -384,7 +384,7 @@ export default function ZaduzenjaPage() {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <label htmlFor="iznos" className="text-right">
-                      Amount
+                      Iznos
                     </label>
                     <Input
                       id="iznos"
@@ -400,7 +400,7 @@ export default function ZaduzenjaPage() {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <label htmlFor="datum" className="text-right">
-                      Date
+                      Datum
                     </label>
                     <Input
                       id="datum"
@@ -414,7 +414,7 @@ export default function ZaduzenjaPage() {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <label htmlFor="valuta" className="text-right">
-                      Due Date
+                      Datum dospeća
                     </label>
                     <Input
                       id="valuta"
@@ -428,7 +428,7 @@ export default function ZaduzenjaPage() {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <label htmlFor="napomena" className="text-right">
-                      Note
+                      Napomena
                     </label>
                     <Input
                       id="napomena"
@@ -437,13 +437,13 @@ export default function ZaduzenjaPage() {
                         setFormData({ ...formData, napomena: e.target.value })
                       }
                       className="col-span-3"
-                      placeholder="Optional note"
+                      placeholder="Opciona napomena"
                     />
                   </div>
                 </div>
                 <DialogFooter>
                   <Button type="submit" onClick={handleCreate}>
-                    Add Zaduzenje
+                    Dodaj Zaduženje
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -453,7 +453,7 @@ export default function ZaduzenjaPage() {
             <div className="mb-4 flex items-center gap-2">
               <Select value={monthFilter} onValueChange={setMonthFilter}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by month" />
+                  <SelectValue placeholder="Filtriraj po mesecu" />
                 </SelectTrigger>
                 <SelectContent>
                   {months.map((month) => (
@@ -465,10 +465,10 @@ export default function ZaduzenjaPage() {
               </Select>
               <Select value={clientFilter} onValueChange={setClientFilter}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by client" />
+                  <SelectValue placeholder="Filtriraj po klijentu" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Clients</SelectItem>
+                  <SelectItem value="all">Svi Klijenti</SelectItem>
                   {Array.from(
                     new Set(
                       finansije
@@ -500,14 +500,14 @@ export default function ZaduzenjaPage() {
                       </div>
                     </th>
                     <th className="border border-border px-4 py-2 text-left">
-                      Client
+                      Klijent
                     </th>
                     <th
                       className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted"
                       onClick={() => handleSort("iznos")}
                     >
                       <div className="flex items-center space-x-1">
-                        <span>Amount</span>
+                        <span>Iznos</span>
                         {getSortIcon("iznos")}
                       </div>
                     </th>
@@ -516,18 +516,18 @@ export default function ZaduzenjaPage() {
                       onClick={() => handleSort("datum")}
                     >
                       <div className="flex items-center space-x-1">
-                        <span>Date</span>
+                        <span>Datum</span>
                         {getSortIcon("datum")}
                       </div>
                     </th>
                     <th className="border border-border px-4 py-2 text-left">
-                      Due Date
+                      Datum dospeća
                     </th>
                     <th className="border border-border px-4 py-2 text-left">
-                      Note
+                      Napomena
                     </th>
                     <th className="border border-border px-4 py-2 text-left">
-                      Actions
+                      Akcije
                     </th>
                   </tr>
                 </thead>
@@ -538,7 +538,7 @@ export default function ZaduzenjaPage() {
                         colSpan={7}
                         className="border border-border px-4 py-8 text-center"
                       >
-                        Loading...
+                        Učitavanje...
                       </td>
                     </tr>
                   ) : filteredFinansije.length === 0 ? (
@@ -547,7 +547,7 @@ export default function ZaduzenjaPage() {
                         colSpan={7}
                         className="border border-border px-4 py-8 text-center"
                       >
-                        No zaduzenja found
+                        Nije pronađeno nijedno zaduženje
                       </td>
                     </tr>
                   ) : (
@@ -566,8 +566,8 @@ export default function ZaduzenjaPage() {
                             </div>
                           </div>
                         </td>
-                        <td className="border border-border px-4 py-2">
-                          {formatSerbianNumber(Number(finansija.iznos))} RSD
+                        <td className="border border-border px-4 py-2 text-right">
+                          {formatSerbianNumber(Number(finansija.iznos))}
                         </td>
                         <td className="border border-border px-4 py-2">
                           {new Date(finansija.datum).toLocaleDateString()}
@@ -598,19 +598,21 @@ export default function ZaduzenjaPage() {
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>
-                                    Are you sure?
+                                    Da li ste sigurni?
                                   </AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This action cannot be undone. This will
-                                    permanently delete this zaduzenje record.
+                                    Ova akcija ne može biti poništena. Ovo će
+                                    trajno obrisati ovaj zapis o zaduženju.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel>
+                                    Odustani
+                                  </AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => handleDelete(finansija.id)}
                                   >
-                                    Delete
+                                    Obriši
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -627,19 +629,21 @@ export default function ZaduzenjaPage() {
                       colSpan={2}
                       className="border border-border px-4 py-3 text-right"
                     >
-                      TOTAL:
+                      UKUPNO:
                     </td>
-                    <td className="border border-border px-4 py-3">
+                    <td className="border border-border px-4 py-3 text-right">
                       {formatSerbianNumber(
                         filteredFinansije.reduce(
                           (sum, f) => sum + Number(f.iznos || 0),
                           0
                         )
-                      )}{" "}
-                      RSD
+                      )}
                     </td>
-                    <td colSpan={4} className="border border-border px-4 py-3">
-                      {/* Empty cells for the remaining columns */}
+                    <td
+                      colSpan={4}
+                      className="border border-border px-4 py-3 text-right"
+                    >
+                      {/* Prazne ćelije za preostale kolone */}
                     </td>
                   </tr>
                 </tfoot>
@@ -653,15 +657,15 @@ export default function ZaduzenjaPage() {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Zaduzenje</DialogTitle>
+            <DialogTitle>Uredi Zaduženje</DialogTitle>
             <DialogDescription>
-              Update the zaduzenje information.
+              Ažuriraj informacije o zaduženju.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <label htmlFor="edit_client" className="text-right">
-                Client
+                Klijent
               </label>
               <div className="col-span-3">
                 <Input
@@ -674,7 +678,7 @@ export default function ZaduzenjaPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <label htmlFor="edit_iznos" className="text-right">
-                Amount
+                Iznos
               </label>
               <Input
                 id="edit_iznos"
@@ -690,7 +694,7 @@ export default function ZaduzenjaPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <label htmlFor="edit_datum" className="text-right">
-                Date
+                Datum
               </label>
               <Input
                 id="edit_datum"
@@ -704,7 +708,7 @@ export default function ZaduzenjaPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <label htmlFor="edit_valuta" className="text-right">
-                Due Date
+                Datum dospeća
               </label>
               <Input
                 id="edit_valuta"
@@ -718,7 +722,7 @@ export default function ZaduzenjaPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <label htmlFor="edit_napomena" className="text-right">
-                Note
+                Napomena
               </label>
               <Input
                 id="edit_napomena"
@@ -727,13 +731,13 @@ export default function ZaduzenjaPage() {
                   setFormData({ ...formData, napomena: e.target.value })
                 }
                 className="col-span-3"
-                placeholder="Optional note"
+                placeholder="Opciona napomena"
               />
             </div>
           </div>
           <DialogFooter>
             <Button type="submit" onClick={handleEdit}>
-              Update Zaduzenje
+              Ažuriraj Zaduženje
             </Button>
           </DialogFooter>
         </DialogContent>

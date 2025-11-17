@@ -54,7 +54,7 @@ const items = [
     icon: Percent,
     items: [
       {
-        title: "Zaduzenja",
+        title: "Zaduženja",
         url: "/dashboard/liflet/zaduzenja",
       },
       {

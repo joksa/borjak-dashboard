@@ -212,35 +212,35 @@ export default function StanjePage() {
           <div style="margin-bottom: 20px; background-color: #f8f9fa; padding: 15px; border-radius: 5px;">
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
               <span style="font-weight: bold;">Total Zaduženja:</span>
-              <span>${formatSerbianNumberHTML(client.totalZaduzenja)} RSD</span>
+              <span>${formatSerbianNumberHTML(client.totalZaduzenja)}</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
               <span style="font-weight: bold;">Total Uplate:</span>
-              <span>${formatSerbianNumberHTML(client.totalUplate)} RSD</span>
+              <span>${formatSerbianNumberHTML(client.totalUplate)}</span>
             </div>
             <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
-              <span style="font-weight: bold;">Current Due:</span>
+              <span style="font-weight: bold;">Trenutni dug:</span>
               <span style="${
                 client.currentDue > 0
                   ? "color: #dc3545; font-weight: bold;"
                   : ""
-              }">${formatSerbianNumberHTML(client.currentDue)} RSD</span>
+              }">${formatSerbianNumberHTML(client.currentDue)}</span>
             </div>
             <div style="display: flex; justify-content: space-between;">
-              <span style="font-weight: bold;">Total Due:</span>
-              <span>${formatSerbianNumberHTML(client.pastDue)} RSD</span>
+              <span style="font-weight: bold;">Ukupan dug:</span>
+              <span>${formatSerbianNumberHTML(client.pastDue)}</span>
             </div>
           </div>
 
           <table style="width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'DejaVu Sans', Arial, sans-serif;">
             <thead>
               <tr style="background-color: #428bca; color: white;">
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Date</th>
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Type</th>
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Due Date</th>
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Due Amount</th>
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Payment Amount</th>
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Note</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Datum</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Tip</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Datum dospeća</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Iznos zaduženja</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Iznos uplate</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Napomena</th>
               </tr>
             </thead>
             <tbody>
@@ -258,7 +258,7 @@ export default function StanjePage() {
                       transaction.dug
                         ? "background-color: #f8d7da; color: #721c24;"
                         : "background-color: #d4edda; color: #155724;"
-                    }">${transaction.dug ? "Due" : "Payment"}</span>
+                    }">${transaction.dug ? "Dug" : "Uplata"}</span>
                   </td>
                   <td style="padding: 8px; border: 1px solid #ddd;">${
                     transaction.valuta
@@ -267,14 +267,12 @@ export default function StanjePage() {
                   }</td>
                   <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${
                     transaction.dug
-                      ? formatSerbianNumberHTML(Number(transaction.iznos)) +
-                        " RSD"
+                      ? formatSerbianNumberHTML(Number(transaction.iznos))
                       : "-"
                   }</td>
                   <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${
                     !transaction.dug
-                      ? formatSerbianNumberHTML(Number(transaction.iznos)) +
-                        " RSD"
+                      ? formatSerbianNumberHTML(Number(transaction.iznos))
                       : "-"
                   }</td>
                   <td style="padding: 8px; border: 1px solid #ddd;">${
@@ -288,15 +286,7 @@ export default function StanjePage() {
           </table>
 
           <div style="margin-top: 20px; text-align: center; font-size: 14px; font-weight: bold; padding: 15px; background-color: #e9ecef; border-radius: 5px;">
-            Final Balance: ${formatSerbianNumberHTML(
-              Math.abs(finalBalance)
-            )} RSD ${
-        finalBalance < 0
-          ? "(Credit)"
-          : finalBalance > 0
-          ? "(Due)"
-          : "(Balanced)"
-      }
+            Konačno stanje: ${formatSerbianNumberHTML(Math.abs(finalBalance))} 
           </div>
         </div>
       `;
@@ -379,7 +369,7 @@ export default function StanjePage() {
       <div className="w-full">
         <Card className="w-full h-full">
           <CardHeader>
-            <CardTitle>Client Financial Statements</CardTitle>
+            <CardTitle>Izvezi finansije klijenata</CardTitle>
           </CardHeader>
           <CardContent>
             {/* All clients Details */}
@@ -392,12 +382,12 @@ export default function StanjePage() {
                       onClick={() => handleSort("naziv")}
                     >
                       <div className="flex items-center space-x-1">
-                        <span>Client</span>
+                        <span>Klijent</span>
                         {getSortIcon("naziv")}
                       </div>
                     </th>
                     <th className="border border-border px-4 py-2 text-left">
-                      PIB
+                      PIB:
                     </th>
                     <th
                       className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted"
@@ -422,7 +412,7 @@ export default function StanjePage() {
                       onClick={() => handleSort("currentDue")}
                     >
                       <div className="flex items-center space-x-1">
-                        <span>Current Due</span>
+                        <span>Trenutni dug</span>
                         {getSortIcon("currentDue")}
                       </div>
                     </th>
@@ -431,12 +421,12 @@ export default function StanjePage() {
                       onClick={() => handleSort("pastDue")}
                     >
                       <div className="flex items-center space-x-1">
-                        <span>Total Due</span>
+                        <span>Ukupan dug</span>
                         {getSortIcon("pastDue")}
                       </div>
                     </th>
                     <th className="border border-border px-4 py-2 text-left">
-                      Actions
+                      Akcije
                     </th>
                   </tr>
                 </thead>
@@ -447,7 +437,7 @@ export default function StanjePage() {
                         colSpan={7}
                         className="border border-border px-4 py-8 text-center"
                       >
-                        Loading...
+                        Učitavanje...
                       </td>
                     </tr>
                   ) : sortedClientData.length === 0 ? (
@@ -456,7 +446,7 @@ export default function StanjePage() {
                         colSpan={7}
                         className="border border-border px-4 py-8 text-center"
                       >
-                        No client data found
+                        Nema podataka o klijentu
                       </td>
                     </tr>
                   ) : (
@@ -478,23 +468,25 @@ export default function StanjePage() {
                         <td className="border border-border px-4 py-2">
                           {client.pib}
                         </td>
-                        <td className="border border-border px-4 py-2">
-                          {formatSerbianNumber(client.totalZaduzenja)} RSD
+                        <td className="border border-border px-4 py-2 text-right">
+                          {formatSerbianNumber(client.totalZaduzenja)}
                         </td>
-                        <td className="border border-border px-4 py-2">
-                          {formatSerbianNumber(client.totalUplate)} RSD
+                        <td className="border border-border px-4 py-2 text-right">
+                          {formatSerbianNumber(client.totalUplate)}
                         </td>
                         <td
-                          className={`border border-border px-4 py-2 ${
+                          className={`border border-border px-4 py-2 text-right ${
                             client.currentDue > 0
                               ? "text-red-600 font-semibold"
                               : ""
                           }`}
                         >
-                          {formatSerbianNumber(client.currentDue)} RSD
+                          <span className="text-right">
+                            {formatSerbianNumber(client.currentDue)}
+                          </span>
                         </td>
-                        <td className="border border-border px-4 py-2">
-                          {formatSerbianNumber(client.pastDue)} RSD
+                        <td className="border border-border px-4 py-2 text-right">
+                          {formatSerbianNumber(client.pastDue)}
                         </td>
                         <td className="border border-border px-4 py-2">
                           <div className="flex space-x-1">
@@ -534,19 +526,19 @@ export default function StanjePage() {
                       colSpan={2}
                       className="border border-border px-4 py-3 text-right"
                     >
-                      TOTAL:
+                      UKUPNO:
                     </td>
-                    <td className="border border-border px-4 py-3">
-                      {formatSerbianNumber(totals.totalZaduzenja)} RSD
+                    <td className="border border-border px-4 py-3 text-right font-bold">
+                      {formatSerbianNumber(totals.totalZaduzenja)}
                     </td>
-                    <td className="border border-border px-4 py-3">
-                      {formatSerbianNumber(totals.totalUplate)} RSD
+                    <td className="border border-border px-4 py-3 text-right font-bold">
+                      {formatSerbianNumber(totals.totalUplate)}
                     </td>
-                    <td className="border border-border px-4 py-3">
-                      {formatSerbianNumber(totals.currentDue)} RSD
+                    <td className="border border-border px-4 py-3 text-right font-bold">
+                      {formatSerbianNumber(totals.currentDue)}
                     </td>
-                    <td className="border border-border px-4 py-3">
-                      {formatSerbianNumber(totals.pastDue)} RSD
+                    <td className="border border-border px-4 py-3 text-right font-bold">
+                      {formatSerbianNumber(totals.pastDue)}
                     </td>
                   </tr>
                 </tfoot>
@@ -557,12 +549,12 @@ export default function StanjePage() {
             {selectedClient && (
               <div className="mt-8">
                 <h3 className="text-lg font-semibold mb-4">
-                  Transaction Details for {selectedClient.naziv}
+                  Detalji transakcija za {selectedClient.naziv}
                 </h3>
 
                 {loadingTransactions ? (
                   <div className="text-center py-4">
-                    Loading transactions...
+                    Učitavanje transakcija...
                   </div>
                 ) : (
                   <div className="overflow-x-auto w-full">
@@ -570,25 +562,25 @@ export default function StanjePage() {
                       <thead>
                         <tr className="bg-muted/50">
                           <th className="border border-border px-4 py-2 text-left">
-                            Date
+                            Datum
                           </th>
                           <th className="border border-border px-4 py-2 text-left">
-                            Type
+                            Tip
                           </th>
                           <th className="border border-border px-4 py-2 text-left">
-                            Due Date
+                            Datum
                           </th>
                           <th className="border border-border px-4 py-2 text-left">
-                            Due
+                            Dug
                           </th>
                           <th className="border border-border px-4 py-2 text-left">
-                            Payment
+                            Uplata
                           </th>
                           <th className="border border-border px-4 py-2 text-left">
-                            Subtotal
+                            Ukupno
                           </th>
                           <th className="border border-border px-4 py-2 text-left">
-                            Note
+                            Napomena
                           </th>
                         </tr>
                       </thead>
@@ -659,17 +651,17 @@ export default function StanjePage() {
                                       transaction.datum
                                     ).toLocaleDateString()}
                                   </td>
-                                  <td className="border border-border px-4 py-2">
+                                  <td className="border border-border px-4 py-2 text-center">
                                     <span
-                                      className={`px-2 py-1 rounded text-xs font-medium ${
+                                      className={`px-2 py-1 rounded text-xs font-medium text-center ${
                                         transaction.dug === true
                                           ? "bg-red-100 text-red-800"
                                           : "bg-green-100 text-green-800"
                                       }`}
                                     >
                                       {transaction.dug === true
-                                        ? "Due"
-                                        : "Payment"}
+                                        ? "Dug"
+                                        : "Uplata"}
                                     </span>
                                   </td>
                                   <td className="border border-border px-4 py-2">
@@ -679,18 +671,18 @@ export default function StanjePage() {
                                         ).toLocaleDateString()
                                       : "-"}
                                   </td>
-                                  <td className="border border-border px-4 py-2">
+                                  <td className="border border-border px-4 py-2 text-right">
                                     {transaction.dug === true
-                                      ? formatSerbianNumber(amount) + " RSD"
+                                      ? formatSerbianNumber(amount)
                                       : "-"}
                                   </td>
-                                  <td className="border border-border px-4 py-2">
+                                  <td className="border border-border px-4 py-2 text-right">
                                     {transaction.dug === false
-                                      ? formatSerbianNumber(amount) + " RSD"
+                                      ? formatSerbianNumber(amount)
                                       : "-"}
                                   </td>
                                   <td
-                                    className={`border border-border px-4 py-2 font-medium ${
+                                    className={`border border-border px-4 py-2 font-medium text-right ${
                                       runningTotal < 0
                                         ? "text-green-600"
                                         : runningTotal > 0
@@ -700,13 +692,7 @@ export default function StanjePage() {
                                   >
                                     {formatSerbianNumber(
                                       Math.abs(runningTotal)
-                                    )}{" "}
-                                    RSD{" "}
-                                    {runningTotal < 0
-                                      ? "(Credit)"
-                                      : runningTotal > 0
-                                      ? "(Due)"
-                                      : ""}
+                                    )}
                                   </td>
                                   <td className="border border-border px-4 py-2">
                                     {transaction.napomena || "-"}
@@ -723,7 +709,7 @@ export default function StanjePage() {
                             colSpan={5}
                             className="border border-border px-4 py-3 text-right"
                           >
-                            FINAL BALANCE:
+                            KONAČNO STANJE:
                           </td>
                           <td
                             className={`border border-border px-4 py-3 font-bold ${(() => {
@@ -755,12 +741,12 @@ export default function StanjePage() {
                               });
                               return `${formatSerbianNumber(
                                 Math.abs(finalBalance)
-                              )} RSD ${
+                              )} ${
                                 finalBalance < 0
-                                  ? "(Credit)"
+                                  ? ""
                                   : finalBalance > 0
-                                  ? "(Due)"
-                                  : "(Balanced)"
+                                  ? ""
+                                  : ""
                               }`;
                             })()}
                           </td>

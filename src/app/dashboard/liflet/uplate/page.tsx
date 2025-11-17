@@ -143,10 +143,14 @@ export default function UplatePage() {
 
   const handleCreate = async () => {
     try {
+      const createData = {
+        ...formData,
+        valuta: formData.datum, // Set due date same as transaction date
+      };
       const response = await fetch("/api/liflet/finansije", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(createData),
       });
 
       if (response.ok) {
@@ -167,12 +171,16 @@ export default function UplatePage() {
     if (!editingFinansija) return;
 
     try {
+      const editData = {
+        ...formData,
+        valuta: formData.datum, // Set due date same as transaction date
+      };
       const response = await fetch(
         `/api/liflet/finansije/${editingFinansija.id}`,
         {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(formData),
+          body: JSON.stringify(editData),
         }
       );
 
@@ -410,7 +418,7 @@ export default function UplatePage() {
             dug: false, // Always false for uplate (payments/credits)
             iznos: record.amount.toString(),
             datum: datum,
-            valuta: "", // No due date for imported payments
+            valuta: datum,
             napomena: `Imported from eBanking: ${
               record.description || ""
             }`.trim(),
@@ -626,7 +634,7 @@ export default function UplatePage() {
       <div className="w-full">
         <Card className="w-full h-full">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Uplate Details</CardTitle>
+            <CardTitle>Detalji o uplatama</CardTitle>
             <div className="flex gap-2">
               <Dialog
                 open={isCreateModalOpen}
@@ -635,25 +643,22 @@ export default function UplatePage() {
                 <DialogTrigger asChild>
                   <Button>
                     <Plus className="w-4 h-4 mr-2" />
-                    Add Uplata
+                    Dodaj Uplatu
                   </Button>
                 </DialogTrigger>
-                <DialogContent>
+                <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>Add New Uplata</DialogTitle>
-                    <DialogDescription>
-                      Add a new payment/credit record.
-                    </DialogDescription>
+                    <DialogTitle>Dodaj Novu Uplatu</DialogTitle>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                       <label htmlFor="client_search" className="text-right">
-                        Client
+                        Klijent
                       </label>
                       <div className="col-span-3 relative">
                         <Input
                           id="client_search"
-                          placeholder="Type to search clients..."
+                          placeholder="Pretražite klijente..."
                           value={clientSearchTerm}
                           onChange={(e) => {
                             setClientSearchTerm(e.target.value);
@@ -683,7 +688,7 @@ export default function UplatePage() {
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <label htmlFor="iznos" className="text-right">
-                        Amount
+                        Iznos
                       </label>
                       <Input
                         id="iznos"
@@ -699,7 +704,7 @@ export default function UplatePage() {
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <label htmlFor="datum" className="text-right">
-                        Date
+                        Datum
                       </label>
                       <Input
                         id="datum"
@@ -712,22 +717,8 @@ export default function UplatePage() {
                       />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                      <label htmlFor="valuta" className="text-right">
-                        Due Date
-                      </label>
-                      <Input
-                        id="valuta"
-                        type="date"
-                        value={formData.valuta}
-                        onChange={(e) =>
-                          setFormData({ ...formData, valuta: e.target.value })
-                        }
-                        className="col-span-3"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
                       <label htmlFor="napomena" className="text-right">
-                        Note
+                        Napomena
                       </label>
                       <Input
                         id="napomena"
@@ -736,13 +727,13 @@ export default function UplatePage() {
                           setFormData({ ...formData, napomena: e.target.value })
                         }
                         className="col-span-3"
-                        placeholder="Optional note"
+                        placeholder="Opciona napomena"
                       />
                     </div>
                   </div>
                   <DialogFooter>
                     <Button type="submit" onClick={handleCreate}>
-                      Add Uplata
+                      Dodaj Uplatu
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -755,15 +746,15 @@ export default function UplatePage() {
                 <DialogTrigger asChild>
                   <Button variant="outline">
                     <Upload className="w-4 h-4 mr-2" />
-                    Uvoz eBanking
+                    Uvoz iz eBankinga
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-7xl">
                   <DialogHeader>
-                    <DialogTitle>Uvoz eBanking podataka</DialogTitle>
+                    <DialogTitle>Uvoz iz eBankinga</DialogTitle>
                     <DialogDescription>
                       Prevucite CSV ili Excel fajl ili kliknite da odaberete
-                      fajl za uvoz transakcija.
+                      fajl za uvoz uplata.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="space-y-4">
@@ -814,7 +805,7 @@ export default function UplatePage() {
                       <div className="space-y-4">
                         <div className="flex items-center justify-between">
                           <h3 className="text-lg font-semibold">
-                            Parsed Data Preview ({selectedRows.size} selected)
+                            Pregled podataka ({selectedRows.size} izabranih)
                           </h3>
                           <div className="flex items-center space-x-2">
                             <Checkbox
@@ -831,7 +822,7 @@ export default function UplatePage() {
                               htmlFor="select-all"
                               className="text-sm font-medium cursor-pointer"
                             >
-                              Select All
+                              Izaberi sve
                             </label>
                           </div>
                         </div>
@@ -840,25 +831,25 @@ export default function UplatePage() {
                             <thead className="bg-gray-50 sticky top-0">
                               <tr>
                                 <th className="border border-gray-200 px-4 py-2 text-center text-sm font-medium w-12">
-                                  Select
+                                  Izaberi
                                 </th>
                                 <th className="border border-gray-200 px-4 py-2 text-left text-sm font-medium">
-                                  Reference
+                                  Referenca
                                 </th>
                                 <th className="border border-gray-200 px-4 py-2 text-left text-sm font-medium">
-                                  Client Name
+                                  Klijent
                                 </th>
                                 <th className="border border-gray-200 px-4 py-2 text-left text-sm font-medium">
-                                  Date
+                                  Datum
                                 </th>
                                 <th className="border border-gray-200 px-4 py-2 text-right text-sm font-medium">
-                                  Amount
+                                  Iznos
                                 </th>
                                 <th className="border border-gray-200 px-4 py-2 text-left text-sm font-medium">
-                                  Account Number
+                                  Broj računa
                                 </th>
                                 <th className="border border-gray-200 px-4 py-2 text-left text-sm font-medium">
-                                  Description
+                                  Opis
                                 </th>
                               </tr>
                             </thead>
@@ -905,15 +896,15 @@ export default function UplatePage() {
                         </div>
                         {parsedData.length > 50 && (
                           <p className="text-sm text-gray-500 text-center">
-                            Showing first 50 rows of {parsedData.length} total
-                            rows
+                            Prikazujem prvih 50 redova od {parsedData.length}{" "}
+                            ukupnih zapisa
                           </p>
                         )}
                         {selectedRows.size > 0 && (
                           <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
                             <p className="text-sm text-blue-800">
-                              <strong>{selectedRows.size}</strong> record(s)
-                              selected for import
+                              <strong>{selectedRows.size}</strong> zapisa
+                              izabranih za uvoz
                             </p>
                           </div>
                         )}
@@ -929,11 +920,11 @@ export default function UplatePage() {
                         setSelectedRows(new Set());
                       }}
                     >
-                      Cancel
+                      Odustani
                     </Button>
                     {selectedRows.size > 0 && (
                       <Button onClick={handleImportData}>
-                        Import {selectedRows.size} Selected Records
+                        Uvoz {selectedRows.size} Izabranih Zapisa
                       </Button>
                     )}
                   </DialogFooter>
@@ -945,7 +936,7 @@ export default function UplatePage() {
             <div className="mb-4 flex items-center gap-2">
               <Select value={monthFilter} onValueChange={setMonthFilter}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by month" />
+                  <SelectValue placeholder="Filtriraj po mesecu" />
                 </SelectTrigger>
                 <SelectContent>
                   {months.map((month) => (
@@ -957,10 +948,10 @@ export default function UplatePage() {
               </Select>
               <Select value={clientFilter} onValueChange={setClientFilter}>
                 <SelectTrigger className="w-48">
-                  <SelectValue placeholder="Filter by client" />
+                  <SelectValue placeholder="Filtriraj po klijentu" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Clients</SelectItem>
+                  <SelectItem value="all">Svi Klijenti</SelectItem>
                   {Array.from(
                     new Set(
                       finansije
@@ -992,14 +983,14 @@ export default function UplatePage() {
                       </div>
                     </th>
                     <th className="border border-border px-4 py-2 text-left">
-                      Client
+                      Klijent
                     </th>
                     <th
                       className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted"
                       onClick={() => handleSort("iznos")}
                     >
                       <div className="flex items-center space-x-1">
-                        <span>Amount</span>
+                        <span>Iznos</span>
                         {getSortIcon("iznos")}
                       </div>
                     </th>
@@ -1008,18 +999,15 @@ export default function UplatePage() {
                       onClick={() => handleSort("datum")}
                     >
                       <div className="flex items-center space-x-1">
-                        <span>Date</span>
+                        <span>Datum</span>
                         {getSortIcon("datum")}
                       </div>
                     </th>
                     <th className="border border-border px-4 py-2 text-left">
-                      Due Date
+                      Napomena
                     </th>
                     <th className="border border-border px-4 py-2 text-left">
-                      Note
-                    </th>
-                    <th className="border border-border px-4 py-2 text-left">
-                      Actions
+                      Akcije
                     </th>
                   </tr>
                 </thead>
@@ -1027,19 +1015,19 @@ export default function UplatePage() {
                   {loading ? (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={6}
                         className="border border-border px-4 py-8 text-center"
                       >
-                        Loading...
+                        Učitavanje...
                       </td>
                     </tr>
                   ) : filteredFinansije.length === 0 ? (
                     <tr>
                       <td
-                        colSpan={7}
+                        colSpan={6}
                         className="border border-border px-4 py-8 text-center"
                       >
-                        No uplate found
+                        Nije pronađeno nijedna uplata
                       </td>
                     </tr>
                   ) : (
@@ -1058,16 +1046,11 @@ export default function UplatePage() {
                             </div>
                           </div>
                         </td>
-                        <td className="border border-border px-4 py-2">
-                          {formatSerbianNumber(Number(finansija.iznos))} RSD
+                        <td className="border border-border px-4 py-2 text-right">
+                          {formatSerbianNumber(Number(finansija.iznos))}
                         </td>
                         <td className="border border-border px-4 py-2">
                           {new Date(finansija.datum).toLocaleDateString()}
-                        </td>
-                        <td className="border border-border px-4 py-2">
-                          {finansija.valuta
-                            ? new Date(finansija.valuta).toLocaleDateString()
-                            : "-"}
                         </td>
                         <td className="border border-border px-4 py-2">
                           {finansija.napomena || "-"}
@@ -1090,19 +1073,21 @@ export default function UplatePage() {
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>
-                                    Are you sure?
+                                    Da li ste sigurni?
                                   </AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This action cannot be undone. This will
-                                    permanently delete this uplata record.
+                                    Ova akcija ne može biti poništena. Ovo će
+                                    trajno obrisati ovaj zapis o uplati.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel>
+                                    Odustani
+                                  </AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => handleDelete(finansija.id)}
                                   >
-                                    Delete
+                                    Obriši
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -1119,18 +1104,20 @@ export default function UplatePage() {
                       colSpan={2}
                       className="border border-border px-4 py-3 text-right"
                     >
-                      TOTAL:
+                      UKUPNO:
                     </td>
-                    <td className="border border-border px-4 py-3">
+                    <td className="border border-border px-4 py-3 text-right">
                       {formatSerbianNumber(
                         filteredFinansije.reduce(
                           (sum, f) => sum + Number(f.iznos || 0),
                           0
                         )
-                      )}{" "}
-                      RSD
+                      )}
                     </td>
-                    <td colSpan={4} className="border border-border px-4 py-3">
+                    <td
+                      colSpan={3}
+                      className="border border-border px-4 py-3 text-right"
+                    >
                       {/* Empty cells for the remaining columns */}
                     </td>
                   </tr>
@@ -1145,15 +1132,15 @@ export default function UplatePage() {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Uplata</DialogTitle>
+            <DialogTitle>Uredi Uplatu</DialogTitle>
             <DialogDescription>
-              Update the uplata information.
+              Ažuriraj informacije o uplati.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <label htmlFor="edit_client" className="text-right">
-                Client
+                Klijent
               </label>
               <div className="col-span-3">
                 <Input
@@ -1166,7 +1153,7 @@ export default function UplatePage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <label htmlFor="edit_iznos" className="text-right">
-                Amount
+                Iznos
               </label>
               <Input
                 id="edit_iznos"
@@ -1182,7 +1169,7 @@ export default function UplatePage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <label htmlFor="edit_datum" className="text-right">
-                Date
+                Datum
               </label>
               <Input
                 id="edit_datum"
@@ -1195,22 +1182,8 @@ export default function UplatePage() {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <label htmlFor="edit_valuta" className="text-right">
-                Due Date
-              </label>
-              <Input
-                id="edit_valuta"
-                type="date"
-                value={formData.valuta}
-                onChange={(e) =>
-                  setFormData({ ...formData, valuta: e.target.value })
-                }
-                className="col-span-3"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
               <label htmlFor="edit_napomena" className="text-right">
-                Note
+                Napomena
               </label>
               <Input
                 id="edit_napomena"
@@ -1219,13 +1192,13 @@ export default function UplatePage() {
                   setFormData({ ...formData, napomena: e.target.value })
                 }
                 className="col-span-3"
-                placeholder="Optional note"
+                placeholder="Opciona napomena"
               />
             </div>
           </div>
           <DialogFooter>
             <Button type="submit" onClick={handleEdit}>
-              Update Uplata
+              Ažuriraj Uplatu
             </Button>
           </DialogFooter>
         </DialogContent>

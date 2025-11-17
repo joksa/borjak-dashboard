@@ -49,6 +49,8 @@ import { toast } from "sonner";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
+// @ts-ignore
+import QRCode from "qrcode";
 
 // Unified PDF header function with Serbian character support
 const addPDFHeader = async (pdf: jsPDF, title: string, subtitle?: string) => {
@@ -428,10 +430,10 @@ export default function LifletPage() {
       ).toLocaleDateString("sr-RS")}</h2>
             ${
               clientFilter !== "all"
-                ? `<p style="margin: 10px 0; font-size: 14px; color: #666;">Filter by Client: ${clientFilter}</p>`
+                ? `<p style="margin: 10px 0; font-size: 14px; color: #666;">Filtriraj po Klijentu: ${clientFilter}</p>`
                 : ""
             }
-            <p style="margin: 5px 0; font-size: 12px; color: #888;">Generated: ${new Date().toLocaleDateString(
+            <p style="margin: 5px 0; font-size: 12px; color: #888;">Generisano: ${new Date().toLocaleDateString(
               "sr-RS"
             )}</p>
           </div>
@@ -439,12 +441,12 @@ export default function LifletPage() {
           <table style="width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'DejaVu Sans', Arial, sans-serif;">
             <thead>
               <tr style="background-color: #428bca; color: white;">
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: center; font-weight: bold; width: 60px;">Image</th>
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Article</th>
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Code</th>
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Client</th>
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Regular Price</th>
-                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Promo Price</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: center; font-weight: bold; width: 60px;">Slika</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Artikal</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Šifra</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Klijent</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Redovna cena</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Akcijska cena</th>
               </tr>
             </thead>
             <tbody>
@@ -472,14 +474,12 @@ export default function LifletPage() {
                   }</td>
                   <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${
                     detalj.cena_redovna
-                      ? formatSerbianNumberHTML(Number(detalj.cena_redovna)) +
-                        " RSD"
+                      ? formatSerbianNumberHTML(Number(detalj.cena_redovna))
                       : ""
                   }</td>
                   <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${
                     detalj.cena_akcija
-                      ? formatSerbianNumberHTML(Number(detalj.cena_akcija)) +
-                        " RSD"
+                      ? formatSerbianNumberHTML(Number(detalj.cena_akcija))
                       : ""
                   }</td>
                 </tr>
@@ -561,6 +561,248 @@ export default function LifletPage() {
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error("Failed to export PDF");
+    }
+  };
+
+  const stampajCeneZaRaf = async () => {
+    // SPECS: on A4 paper print 6cm wide and 3.5cm height price tag with approximately this data below
+    // - 1. column: article
+    // - 2. column: code
+    // - 3. column: client
+    // - 4. column: regular price
+    // - 5. column: promo price
+    // - 6. column: QR code code|+|barcode|+|client|+|regular price|+|promo price|
+
+    if (!selectedLiflet) {
+      toast.error("Please select a liflet first");
+      return;
+    }
+
+    try {
+      // Filter data based on current filters
+      const filteredData = lifletDetalji.filter((detalj) => {
+        const matchesSearch =
+          !searchTerm ||
+          detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
+            searchTerm.toLowerCase()
+          ) ||
+          detalj.artikli?.BAR_CODE?.includes(searchTerm);
+
+        const matchesClient =
+          clientFilter === "all" || detalj.klijenti?.Naziv === clientFilter;
+
+        return matchesSearch && matchesClient;
+      });
+
+      if (filteredData.length === 0) {
+        toast.error("No data to print");
+        return;
+      }
+
+      // Generate QR codes for all items
+      const qrCodesPromises = filteredData.map(async (detalj) => {
+        const qrData = `${
+          detalj.artikli?.Id_Artikal || detalj.artikli?.DESCRIPTION || ""
+        }`;
+        try {
+          const qrCodeDataURL = await QRCode.toDataURL(qrData, {
+            width: 80,
+            margin: 1,
+            color: {
+              dark: "#000000",
+              light: "#FFFFFF",
+            },
+          });
+          return qrCodeDataURL;
+        } catch (error) {
+          console.error("Error generating QR code:", error);
+          return "";
+        }
+      });
+
+      const qrCodes = await Promise.all(qrCodesPromises);
+
+      // Serbian number formatting function for HTML
+      const formatSerbianNumberHTML = (value: number) => {
+        return new Intl.NumberFormat("sr-RS", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(value);
+      };
+
+      // Create HTML content for price tags
+      // A4 dimensions in pixels at 300 DPI: 2480 x 3508
+      // Price tag: 6cm x 3.5cm = ~708px x ~413px at 300 DPI
+      // We'll fit 3 tags per row (with margins), so ~3.33 tags per row, let's do 3 per row
+      // 7 rows per page = 21 tags per page
+
+      let htmlContent = ``;
+
+      filteredData.forEach((detalj, index) => {
+        const qrCode = qrCodes[index];
+        const sifra = detalj.artikli?.Id_Artikal || "";
+        const articleName = detalj.artikli?.DESCRIPTION || "";
+        const barcode = detalj.artikli?.BAR_CODE || "";
+        const clientName = detalj.klijenti?.Naziv || "";
+        const regularPrice = detalj.cena_redovna
+          ? formatSerbianNumberHTML(Number(detalj.cena_redovna))
+          : "";
+        const promoPrice = detalj.cena_akcija
+          ? formatSerbianNumberHTML(Number(detalj.cena_akcija))
+          : "";
+
+        htmlContent += `
+          <div style="
+            width: 60mm; 
+            height: 35mm; 
+            border: 1px solid #000; 
+            background: white; 
+            box-sizing: border-box; 
+            padding: 2px; 
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+          ">
+        
+            <!-- TOP: Product name and QR -->
+            <div style="display: flex; justify-content: space-between;">
+              
+              <!-- Product info -->
+              <div style="flex: 1; padding-right: 2mm;">
+                <div style="font-size: 10px; font-weight: bold; color: #000; margin-bottom: 1mm;">
+                  ${articleName}
+                </div>
+        
+                <!-- Optional product details row -->
+                <div style="font-size: 6.5px; line-height: 1.2;">
+                  <div><strong>${sifra}</strong> | ${barcode}</div>
+                </div>
+              </div>
+        
+              <!-- QR code -->
+              <div style="width: 15mm; display: flex; align-items: center; justify-content: flex-end;">
+                ${
+                  qrCode
+                    ? `<img src="${qrCode}" alt="QR" style="width: 14mm; height: 14mm;" />`
+                    : ""
+                }
+              </div>
+            </div>
+        
+            <!-- BOTTOM: Red promo section -->
+            <div style="
+              display: flex; 
+              justify-content: space-between; 
+              align-items: center; 
+              margin-top: 2mm;
+            ">
+              
+              <!-- Left text -->
+              <div style="font-size: 7px; color: #b00; font-weight: bold;">
+                Akcijaska cena<br>
+                <span style="font-size: 6px; color: #555; font-weight: normal;">
+                  Akcija važi do: 
+                </span>
+                <span style="font-size: 6px; color: #555; font-weight: normal;">
+                  ${
+                    selectedLiflet?.datum_do
+                      ? new Date(selectedLiflet.datum_do).toLocaleDateString(
+                          "sr-RS"
+                        )
+                      : ""
+                  }
+                </span>
+              </div>
+        
+              <!-- Right red price box -->
+              <div style="
+                background: #b00;
+                color: white;
+                padding: 3px;
+                border-radius: 2px;
+                text-align: right;
+                width: 60%;
+              ">
+                <div style="font-size: 24px; font-weight: bold;">
+                  ${promoPrice} <span style="font-size: 8px;">RSD  </span>
+                </div>
+              <div style="font-size: 10px; opacity: 0.8;">
+                  <span style="text-decoration: line-through; display: inline-block;">
+                    ${regularPrice}
+                  </span>
+                  <span style="font-size: 6px; display: inline-block;">
+                    RSD
+                  </span>
+                </div>
+              </div>
+        
+            </div>
+        
+          </div>
+        `;
+      });
+
+      // Create a temporary element to render
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = htmlContent;
+      tempDiv.style.position = "absolute";
+      tempDiv.style.left = "-9999px";
+      tempDiv.style.top = "-9999px";
+      tempDiv.style.width = "210mm";
+      tempDiv.style.background = "white";
+      document.body.appendChild(tempDiv);
+
+      // Use html2canvas to render the HTML
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        width: 794, // 210mm at 96 DPI
+        height: Math.max(1123, tempDiv.scrollHeight), // 297mm at 96 DPI, but adjust for content
+      });
+
+      // Remove temporary element
+      document.body.removeChild(tempDiv);
+
+      // Create PDF from canvas
+      const imgData = canvas.toDataURL("image/png");
+      const pdf = new jsPDF({
+        orientation: "portrait",
+        unit: "mm",
+        format: "a4",
+      });
+
+      const imgWidth = 210; // A4 width in mm
+      const pageHeight = 297; // A4 height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+
+      let position = 0;
+
+      // Add first page
+      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      // Add additional pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      // Save the PDF
+      const fileName = `cene_za_raf_${selectedLiflet.id}_${
+        new Date().toISOString().split("T")[0]
+      }.pdf`;
+      pdf.save(fileName);
+
+      toast.success(`Generisan PDF sa ${filteredData.length} artikala`);
+    } catch (error) {
+      console.error("Error generating price tags PDF:", error);
+      toast.error("Failed to generate price tags PDF");
     }
   };
 
@@ -818,7 +1060,7 @@ export default function LifletPage() {
       <div className="flex-1 w-full">
         <Card className="w-full h-full">
           <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Liflet Management</CardTitle>
+            <CardTitle>Upravljanje Lifletima</CardTitle>
             <Dialog
               open={isCreateModalOpen}
               onOpenChange={setIsCreateModalOpen}
@@ -826,21 +1068,21 @@ export default function LifletPage() {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="w-4 h-4 mr-2" />
-                  Create Liflet
+                  Kreiraj Liflet
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Create New Liflet</DialogTitle>
+                  <DialogTitle>Kreiraj Novi Liflet</DialogTitle>
                   <DialogDescription>
-                    Add a new promotional liflet with date range and client
-                    information.
+                    Dodaj novi prometni list sa datumskim opsegom i
+                    informacijama o klijentu.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="datum_od" className="text-right">
-                      Start Date
+                      Datum početka
                     </Label>
                     <Input
                       id="datum_od"
@@ -854,7 +1096,7 @@ export default function LifletPage() {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="datum_do" className="text-right">
-                      End Date
+                      Datum završetka
                     </Label>
                     <Input
                       id="datum_do"
@@ -868,7 +1110,7 @@ export default function LifletPage() {
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="op_id" className="text-right">
-                      Operator ID
+                      ID operatora
                     </Label>
                     <Input
                       id="op_id"
@@ -883,7 +1125,7 @@ export default function LifletPage() {
                 </div>
                 <DialogFooter>
                   <Button type="submit" onClick={handleCreate}>
-                    Create Liflet
+                    Kreiraj Liflet
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -899,9 +1141,9 @@ export default function LifletPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="5">5 per page</SelectItem>
-                  <SelectItem value="10">10 per page</SelectItem>
-                  <SelectItem value="20">20 per page</SelectItem>
+                  <SelectItem value="5">5 po stranici</SelectItem>
+                  <SelectItem value="10">10 po stranici</SelectItem>
+                  <SelectItem value="20">20 po stranici</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -920,25 +1162,25 @@ export default function LifletPage() {
                       </div>
                     </th>
                     <th
-                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-32"
+                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-48"
                       onClick={() => handleSort("datum_od")}
                     >
                       <div className="flex items-center space-x-1">
-                        <span>Start Date</span>
+                        <span>Datum početka</span>
                         {getSortIcon("datum_od")}
                       </div>
                     </th>
                     <th
-                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-32"
+                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-48"
                       onClick={() => handleSort("datum_do")}
                     >
                       <div className="flex items-center space-x-1">
-                        <span>End Date</span>
+                        <span>Datum završetka</span>
                         {getSortIcon("datum_do")}
                       </div>
                     </th>
-                    <th className="border border-border px-4 py-2 text-left w-32">
-                      Actions
+                    <th className="border border-border px-4 py-2 text-left w-48">
+                      Akcije
                     </th>
                   </tr>
                 </thead>
@@ -949,7 +1191,7 @@ export default function LifletPage() {
                         colSpan={4}
                         className="border border-border px-4 py-8 text-center"
                       >
-                        Loading...
+                        Učitavanje...
                       </td>
                     </tr>
                   ) : lifletZaglavlje.length === 0 ? (
@@ -958,7 +1200,7 @@ export default function LifletPage() {
                         colSpan={4}
                         className="border border-border px-4 py-8 text-center"
                       >
-                        No liflets found
+                        Nije pronađen nijedan liflet
                       </td>
                     </tr>
                   ) : (
@@ -1010,20 +1252,22 @@ export default function LifletPage() {
                               <AlertDialogContent>
                                 <AlertDialogHeader>
                                   <AlertDialogTitle>
-                                    Are you sure?
+                                    Da li ste sigurni?
                                   </AlertDialogTitle>
                                   <AlertDialogDescription>
-                                    This action cannot be undone. This will
-                                    permanently delete the liflet and all its
-                                    associated details.
+                                    Ova akcija ne može biti poništena. Ovo će
+                                    trajno obrisati liflet i sve njegove
+                                    povezane detalje.
                                   </AlertDialogDescription>
                                 </AlertDialogHeader>
                                 <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogCancel>
+                                    Odustani
+                                  </AlertDialogCancel>
                                   <AlertDialogAction
                                     onClick={() => handleDelete(liflet.id)}
                                   >
-                                    Delete
+                                    Obriši
                                   </AlertDialogAction>
                                 </AlertDialogFooter>
                               </AlertDialogContent>
@@ -1042,7 +1286,7 @@ export default function LifletPage() {
               <div className="text-sm text-muted-foreground">
                 Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
                 {Math.min(currentPage * itemsPerPage, lifletZaglavlje.length)}{" "}
-                of {lifletZaglavlje.length} entries
+                od {lifletZaglavlje.length} zapisa
               </div>
               <div className="flex space-x-2">
                 <Button
@@ -1052,7 +1296,7 @@ export default function LifletPage() {
                   }
                   disabled={currentPage === 1}
                 >
-                  Previous
+                  Prethodna
                 </Button>
                 <Button
                   variant="outline"
@@ -1061,7 +1305,7 @@ export default function LifletPage() {
                     currentPage * itemsPerPage >= lifletZaglavlje.length
                   }
                 >
-                  Next
+                  Sledeća
                 </Button>
               </div>
             </div>
@@ -1075,8 +1319,8 @@ export default function LifletPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>
               {selectedLiflet
-                ? `Liflet Details - ID: ${selectedLiflet.id}`
-                : "Select a Liflet"}
+                ? `Detalji Lifleta - ID: ${selectedLiflet.id}`
+                : "Izaberite Liflet"}
             </CardTitle>
             {selectedLiflet && (
               <Dialog
@@ -1086,21 +1330,21 @@ export default function LifletPage() {
                 <DialogTrigger asChild>
                   <Button size="sm">
                     <Plus className="w-4 h-4 mr-2" />
-                    Add Article
+                    Dodaj Artikal
                   </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl">
                   <DialogHeader>
-                    <DialogTitle>Add Article to Liflet</DialogTitle>
+                    <DialogTitle>Dodaj Artikal na Liflet</DialogTitle>
                     <DialogDescription>
-                      Search and select an article to add to this promotional
+                      Pretražite i izaberite artikal za dodavanje na ovaj
                       liflet.
                     </DialogDescription>
                   </DialogHeader>
                   <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="article_search" className="text-right">
-                        Article
+                        Artikal
                       </Label>
                       <div className="col-span-3 relative">
                         <Input
@@ -1139,16 +1383,16 @@ export default function LifletPage() {
                                     {article.DESCRIPTION}
                                   </div>
                                   <div className="text-sm text-muted-foreground">
-                                    Code: {article.BAR_CODE}
+                                    Barkod: {article.BAR_CODE}
                                   </div>
                                   {article.PRICE && (
                                     <div className="text-sm text-muted-foreground">
-                                      Price: {article.PRICE}
+                                      Cena: {article.PRICE}
                                     </div>
                                   )}
                                   {article.hasImage && (
                                     <div className="text-xs text-green-600 font-medium mt-1">
-                                      ✓ Has image
+                                      ✓ Ima sliku
                                     </div>
                                   )}
                                 </div>
@@ -1160,12 +1404,12 @@ export default function LifletPage() {
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="client_search" className="text-right">
-                        Client
+                        Klijent
                       </Label>
                       <div className="col-span-3 relative">
                         <Input
                           id="client_search"
-                          placeholder="Type to search clients..."
+                          placeholder="Pretražite klijente..."
                           value={clientSearchTerm}
                           onChange={(e) => {
                             setClientSearchTerm(e.target.value);
@@ -1195,7 +1439,7 @@ export default function LifletPage() {
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="cena_redovna" className="text-right">
-                        Regular Price
+                        Regularna cena
                       </Label>
                       <Input
                         id="cena_redovna"
@@ -1214,7 +1458,7 @@ export default function LifletPage() {
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
                       <Label htmlFor="cena_akcija" className="text-right">
-                        Promo Price
+                        Akcijska cena
                       </Label>
                       <Input
                         id="cena_akcija"
@@ -1232,7 +1476,7 @@ export default function LifletPage() {
                       />
                     </div>
                     <div className="grid grid-cols-4 items-start gap-4">
-                      <Label className="text-right pt-2">Image</Label>
+                      <Label className="text-right pt-2">Slika</Label>
                       <div className="col-span-3">
                         <div
                           className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
@@ -1266,13 +1510,14 @@ export default function LifletPage() {
                             <div>
                               <ImageIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
                               <p className="text-sm text-muted-foreground mb-1">
-                                Drag & drop an image here, or click to select
+                                Prevucite i spustite sliku ovde, ili kliknite da
+                                odaberete
                               </p>
                               <p className="text-xs text-muted-foreground">
-                                Image will be saved as{" "}
+                                Slika će biti sačuvana kao{" "}
                                 {detailFormData.Id_artikal || "ID_artikal"}.
                                 {detailFormData.image?.name.split(".").pop() ||
-                                  "extension"}
+                                  "ekstenzija"}
                               </p>
                             </div>
                           )}
@@ -1290,7 +1535,7 @@ export default function LifletPage() {
                           }}
                         />
                         <p className="text-xs text-muted-foreground mt-2">
-                          Optional: Upload an image for this article
+                          Opciono: Pošaljite sliku za ovaj artikal
                         </p>
                       </div>
                     </div>
@@ -1304,7 +1549,7 @@ export default function LifletPage() {
                         !detailFormData.selectedClient
                       }
                     >
-                      Add Article
+                      Dodaj Artikal
                     </Button>
                   </DialogFooter>
                 </DialogContent>
@@ -1318,7 +1563,7 @@ export default function LifletPage() {
                   <div className="flex items-center gap-2 flex-1">
                     <Search className="w-4 h-4" />
                     <Input
-                      placeholder="Search articles..."
+                      placeholder="Pretražite artikle..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="flex-1 max-w-xs"
@@ -1326,10 +1571,10 @@ export default function LifletPage() {
                   </div>
                   <Select value={clientFilter} onValueChange={setClientFilter}>
                     <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Filter by client" />
+                      <SelectValue placeholder="Filtriraj po klijentu" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="all">All Clients</SelectItem>
+                      <SelectItem value="all">Svi Klijenti</SelectItem>
                       {Array.from(
                         new Set(
                           lifletDetalji
@@ -1352,7 +1597,17 @@ export default function LifletPage() {
                     className="flex items-center gap-2"
                   >
                     <Download className="w-4 h-4" />
-                    Export PDF
+                    Izvezi PDF
+                  </Button>
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={stampajCeneZaRaf}
+                    className="flex items-center gap-2"
+                  >
+                    <Download className="w-4 h-4" />
+                    Štampaj Cene
                   </Button>
                 </div>
 
@@ -1361,29 +1616,29 @@ export default function LifletPage() {
                     <thead>
                       <tr className="bg-muted/50">
                         <th className="border border-border px-2 py-2 text-left w-64">
-                          Article
+                          Artikal
                         </th>
                         <th className="border border-border px-2 py-2 text-left w-48">
-                          Client
+                          Klijent
                         </th>
                         <th className="border border-border px-4 py-2 text-left w-24">
-                          Regular Price
+                          Regularna cena
                         </th>
                         <th className="border border-border px-4 py-2 text-left w-24">
-                          Promo Price
+                          Akcijska cena
                         </th>
                         <th className="border border-border px-2 py-2 text-left w-20">
-                          Image
+                          Slika
                         </th>
                         <th className="border border-border px-2 py-2 text-left w-32">
-                          Actions
+                          Akcije
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {lifletDetalji
                         .filter((detalj) => {
-                          // Text search filter
+                          // Filter po tekstu
                           const matchesSearch =
                             !searchTerm ||
                             detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
@@ -1391,7 +1646,7 @@ export default function LifletPage() {
                             ) ||
                             detalj.artikli?.BAR_CODE?.includes(searchTerm);
 
-                          // Client filter
+                          // Filter po klijentu
                           const matchesClient =
                             clientFilter === "all" ||
                             detalj.klijenti?.Naziv === clientFilter;
@@ -1473,24 +1728,24 @@ export default function LifletPage() {
                                   <AlertDialogContent>
                                     <AlertDialogHeader>
                                       <AlertDialogTitle>
-                                        Are you sure?
+                                        Da li ste sigurni?
                                       </AlertDialogTitle>
                                       <AlertDialogDescription>
-                                        This action cannot be undone. This will
-                                        permanently delete this article from the
-                                        liflet.
+                                        Ova akcija ne može biti poništena. Ovo
+                                        će trajno obrisati ovaj artikal sa
+                                        lifleta.
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
                                       <AlertDialogCancel>
-                                        Cancel
+                                        Odustani
                                       </AlertDialogCancel>
                                       <AlertDialogAction
                                         onClick={() =>
                                           handleDeleteDetail(detalj.id)
                                         }
                                       >
-                                        Delete
+                                        Obriši
                                       </AlertDialogAction>
                                     </AlertDialogFooter>
                                   </AlertDialogContent>
@@ -1505,7 +1760,7 @@ export default function LifletPage() {
               </div>
             ) : (
               <div className="text-center py-8 text-muted-foreground">
-                Select a liflet from the left panel to view its details
+                Izaberite liflet sa leve strane da biste videli njegove detalje
               </div>
             )}
           </CardContent>
@@ -1516,15 +1771,15 @@ export default function LifletPage() {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Edit Liflet</DialogTitle>
+            <DialogTitle>Uredi Liflet</DialogTitle>
             <DialogDescription>
-              Update the liflet information.
+              Ažuriraj informacije o lifletu.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_datum_od" className="text-right">
-                Start Date
+                Datum početka
               </Label>
               <Input
                 id="edit_datum_od"
@@ -1538,7 +1793,7 @@ export default function LifletPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_datum_do" className="text-right">
-                End Date
+                Datum završetka
               </Label>
               <Input
                 id="edit_datum_do"
@@ -1552,7 +1807,7 @@ export default function LifletPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_op_id" className="text-right">
-                Operator ID
+                ID operatora
               </Label>
               <Input
                 id="edit_op_id"
@@ -1567,7 +1822,7 @@ export default function LifletPage() {
           </div>
           <DialogFooter>
             <Button type="submit" onClick={handleEdit}>
-              Update Liflet
+              Ažuriraj Liflet
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -1580,15 +1835,15 @@ export default function LifletPage() {
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle>Edit Liflet Detail</DialogTitle>
+            <DialogTitle>Uredi Liflet Detalj</DialogTitle>
             <DialogDescription>
-              Update the article details in this liflet.
+              Ažuriraj detalje o artiklu u ovom lifletu.
             </DialogDescription>
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_article" className="text-right">
-                Article
+                Artikal
               </Label>
               <div className="col-span-3">
                 <Input
@@ -1601,7 +1856,7 @@ export default function LifletPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_client" className="text-right">
-                Client
+                Klijent
               </Label>
               <div className="col-span-3">
                 <Input
@@ -1614,7 +1869,7 @@ export default function LifletPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_cena_redovna" className="text-right">
-                Regular Price
+                Regularna cena
               </Label>
               <Input
                 id="edit_cena_redovna"
@@ -1633,7 +1888,7 @@ export default function LifletPage() {
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="edit_cena_akcija" className="text-right">
-                Promo Price
+                Akcijska cena
               </Label>
               <Input
                 id="edit_cena_akcija"
@@ -1651,7 +1906,7 @@ export default function LifletPage() {
               />
             </div>
             <div className="grid grid-cols-4 items-start gap-4">
-              <Label className="text-right pt-2">Image</Label>
+              <Label className="text-right pt-2">Slika</Label>
               <div className="col-span-3">
                 <div
                   className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
@@ -1701,20 +1956,21 @@ export default function LifletPage() {
                         <X className="w-4 h-4" />
                       </Button>
                       <p className="text-xs text-muted-foreground mt-2">
-                        Current image: {detailFormData.existingImage}
+                        Trenutna slika: {detailFormData.existingImage}
                       </p>
                     </div>
                   ) : (
                     <div>
                       <ImageIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
                       <p className="text-sm text-muted-foreground mb-1">
-                        Drag & drop an image here, or click to select
+                        Prevucite i spustite sliku ovde, ili kliknite da
+                        odaberete
                       </p>
                       <p className="text-xs text-muted-foreground">
-                        Image will be saved as{" "}
+                        Slika će biti sačuvana kao{" "}
                         {detailFormData.Id_artikal || "ID_artikal"}.
                         {detailFormData.image?.name.split(".").pop() ||
-                          "extension"}
+                          "ekstenzija"}
                       </p>
                     </div>
                   )}
@@ -1732,14 +1988,14 @@ export default function LifletPage() {
                   }}
                 />
                 <p className="text-xs text-muted-foreground mt-2">
-                  Optional: Upload a new image or remove the existing one
+                  Opciono: Pošaljite novu sliku ili uklonite postojeću
                 </p>
               </div>
             </div>
           </div>
           <DialogFooter>
             <Button type="submit" onClick={handleEditDetail}>
-              Update Detail
+              Ažuriraj Detalje
             </Button>
           </DialogFooter>
         </DialogContent>
