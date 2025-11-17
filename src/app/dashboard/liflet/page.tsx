@@ -50,6 +50,59 @@ import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
 import html2canvas from "html2canvas";
 
+// Unified PDF header function with Serbian character support
+const addPDFHeader = async (pdf: jsPDF, title: string, subtitle?: string) => {
+  // Add logo (if available)
+  try {
+    // Create an image element to load the logo
+    const img = new Image();
+    img.crossOrigin = "anonymous";
+
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = "/logo.png";
+    });
+
+    // Convert image to canvas for PDF
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    canvas.width = img.width;
+    canvas.height = img.height;
+    ctx?.drawImage(img, 0, 0);
+
+    const imgData = canvas.toDataURL("image/png");
+    pdf.addImage(imgData, "PNG", 20, 20, 25, 25);
+  } catch (error) {
+    console.log("Logo not available, continuing without logo");
+  }
+
+  // Add company info with proper Serbian characters
+  pdf.setFontSize(18);
+  pdf.text("BORJAK ZTR", 55, 35);
+
+  pdf.setFontSize(10);
+  pdf.text("Todorovića 7", 55, 45);
+  pdf.text("Kraljevo", 55, 52);
+  pdf.text("PIB: 104069152", 55, 59);
+
+  // Add title
+  pdf.setFontSize(14);
+  pdf.text(title, 20, 80);
+
+  // Add subtitle if provided
+  if (subtitle) {
+    pdf.setFontSize(10);
+    pdf.text(subtitle, 20, 90);
+  }
+
+  // Add generation date
+  pdf.setFontSize(8);
+  pdf.text(`Generated: ${new Date().toLocaleDateString("sr-RS")}`, 20, 100);
+
+  return 110; // Return Y position for content to start
+};
+
 type LifletZaglavlje = {
   id: number;
   datum_od: Date;
@@ -331,7 +384,7 @@ export default function LifletPage() {
     if (!selectedLiflet) return;
 
     try {
-      // Create HTML content with proper Serbian characters and images
+      // Filter data
       const filteredData = lifletDetalji.filter((detalj) => {
         const matchesSearch =
           !searchTerm ||
@@ -346,41 +399,52 @@ export default function LifletPage() {
         return matchesSearch && matchesClient;
       });
 
-      // Create HTML content
+      // Serbian number formatting function for HTML
+      const formatSerbianNumberHTML = (value: number) => {
+        return new Intl.NumberFormat("sr-RS", {
+          minimumFractionDigits: 2,
+          maximumFractionDigits: 2,
+        }).format(value);
+      };
+
+      // Create HTML content with proper Serbian characters and logo
       const htmlContent = `
-        <div style="font-family: Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto;">
-          <div style="display: flex; align-items: center; margin-bottom: 30px;">
+        <div style="font-family: 'DejaVu Sans', 'Arial Unicode MS', Arial, sans-serif; padding: 20px; max-width: 800px; margin: 0 auto; background: white;">
+          <div style="display: flex; align-items: center; margin-bottom: 30px; border-bottom: 2px solid #428bca; padding-bottom: 20px;">
             <img src="/logo.png" alt="Logo" style="width: 80px; height: 80px; margin-right: 20px;" onerror="this.style.display='none'" />
             <div>
-              <h1 style="margin: 0; font-size: 24px; font-weight: bold;">BORJAK ZTR</h1>
-              <p style="margin: 5px 0; font-size: 14px;">Todorovića 7</p>
-              <p style="margin: 5px 0; font-size: 14px;">Kraljevo</p>
-              <p style="margin: 5px 0; font-size: 14px;">PIB: 104069152</p>
+              <h1 style="margin: 0; font-size: 28px; font-weight: bold; color: #428bca;">BORJAK ZTR</h1>
+              <p style="margin: 5px 0; font-size: 14px; color: #666;">Todorovića 7</p>
+              <p style="margin: 5px 0; font-size: 14px; color: #666;">Kraljevo</p>
+              <p style="margin: 5px 0; font-size: 14px; color: #666;">PIB: 104069152</p>
             </div>
           </div>
 
-          <h2 style="margin-bottom: 20px; font-size: 18px;">
-            Liflet: ${new Date(selectedLiflet.datum_od).toLocaleDateString(
+          <div style="margin-bottom: 20px; text-align: center;">
+            <h2 style="margin: 0; font-size: 20px; color: #333;">Liflet: ${new Date(
+              selectedLiflet.datum_od
+            ).toLocaleDateString("sr-RS")} - ${new Date(
+        selectedLiflet.datum_do
+      ).toLocaleDateString("sr-RS")}</h2>
+            ${
+              clientFilter !== "all"
+                ? `<p style="margin: 10px 0; font-size: 14px; color: #666;">Filter by Client: ${clientFilter}</p>`
+                : ""
+            }
+            <p style="margin: 5px 0; font-size: 12px; color: #888;">Generated: ${new Date().toLocaleDateString(
               "sr-RS"
-            )} -
-            ${new Date(selectedLiflet.datum_do).toLocaleDateString("sr-RS")}
-          </h2>
+            )}</p>
+          </div>
 
-          ${
-            clientFilter !== "all"
-              ? `<p style="margin-bottom: 20px; font-size: 14px;">Filter by Client: ${clientFilter}</p>`
-              : ""
-          }
-
-          <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+          <table style="width: 100%; border-collapse: collapse; font-size: 12px; font-family: 'DejaVu Sans', Arial, sans-serif;">
             <thead>
               <tr style="background-color: #428bca; color: white;">
-                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Image</th>
-                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Article</th>
-                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Code</th>
-                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Client</th>
-                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Regular Price</th>
-                <th style="padding: 8px; border: 1px solid #ddd; text-align: left;">Promo Price</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: center; font-weight: bold; width: 60px;">Image</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Article</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Code</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: left; font-weight: bold;">Client</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Regular Price</th>
+                <th style="padding: 12px 8px; border: 1px solid #ddd; text-align: right; font-weight: bold;">Promo Price</th>
               </tr>
             </thead>
             <tbody>
@@ -388,13 +452,13 @@ export default function LifletPage() {
                 .map(
                   (detalj, index) => `
                 <tr style="background-color: ${
-                  index % 2 === 0 ? "#ffffff" : "#f5f5f5"
+                  index % 2 === 0 ? "#ffffff" : "#f9f9f9"
                 };">
                   <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
                     ${
                       detalj.image
-                        ? `<img src="/images/${detalj.image}" alt="Product" style="max-width: 40px; max-height: 40px; object-fit: contain;" />`
-                        : '<div style="width: 40px; height: 40px; background-color: #f0f0f0; display: inline-flex; align-items: center; justify-content: center;">📷</div>'
+                        ? `<img src="/images/${detalj.image}" alt="Product" style="max-width: 35px; max-height: 35px; width: auto; height: auto; object-fit: contain; border: 1px solid #ddd;" />`
+                        : '<div style="width: 35px; height: 35px; background-color: #f0f0f0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #ddd; font-size: 12px;">📷</div>'
                     }
                   </td>
                   <td style="padding: 8px; border: 1px solid #ddd;">${
@@ -406,14 +470,16 @@ export default function LifletPage() {
                   <td style="padding: 8px; border: 1px solid #ddd;">${
                     detalj.klijenti?.Naziv || ""
                   }</td>
-                  <td style="padding: 8px; border: 1px solid #ddd;">${
+                  <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${
                     detalj.cena_redovna
-                      ? Number(detalj.cena_redovna).toFixed(2)
+                      ? formatSerbianNumberHTML(Number(detalj.cena_redovna)) +
+                        " RSD"
                       : ""
                   }</td>
-                  <td style="padding: 8px; border: 1px solid #ddd;">${
+                  <td style="padding: 8px; border: 1px solid #ddd; text-align: right;">${
                     detalj.cena_akcija
-                      ? Number(detalj.cena_akcija).toFixed(2)
+                      ? formatSerbianNumberHTML(Number(detalj.cena_akcija)) +
+                        " RSD"
                       : ""
                   }</td>
                 </tr>
@@ -431,9 +497,11 @@ export default function LifletPage() {
       tempDiv.style.position = "absolute";
       tempDiv.style.left = "-9999px";
       tempDiv.style.top = "-9999px";
+      tempDiv.style.width = "800px";
+      tempDiv.style.background = "white";
       document.body.appendChild(tempDiv);
 
-      // Use html2canvas to render the HTML
+      // Use html2canvas to render the HTML with Serbian character support
       const canvas = await html2canvas(tempDiv, {
         scale: 2,
         useCORS: true,
@@ -441,6 +509,14 @@ export default function LifletPage() {
         backgroundColor: "#ffffff",
         width: 800,
         height: tempDiv.scrollHeight,
+        onclone: (clonedDoc) => {
+          // Ensure Serbian fonts are applied
+          const clonedElement = clonedDoc.body.firstElementChild as HTMLElement;
+          if (clonedElement) {
+            clonedElement.style.fontFamily =
+              "'DejaVu Sans', 'Arial Unicode MS', Arial, sans-serif";
+          }
+        },
       });
 
       // Remove temporary element
@@ -476,7 +552,7 @@ export default function LifletPage() {
       // Save the PDF
       const fileName = `liflet_${selectedLiflet.id}_${
         clientFilter !== "all"
-          ? clientFilter.replace(/[^a-zA-Z0-9]/g, "_")
+          ? clientFilter.replace(/[^a-zA-Z0-9šđčćžŠĐČĆŽ]/g, "_")
           : "all"
       }.pdf`;
       pdf.save(fileName);

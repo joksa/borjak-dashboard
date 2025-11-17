@@ -168,6 +168,7 @@ model klijenti {
   Povezano_Lice    Boolean?
   Puni_Naziv       String?            @db.VarChar(255)
   liflet_detalji   liflet_detalji[]
+  liflet_finansije liflet_finansije[]
   liflet_zaglavlje liflet_zaglavlje[]
 }
 
@@ -300,4 +301,17 @@ model liflet_detalji {
   @@index([ID_Klijent], map: "ID_Klijent_detalji")
   @@index([Id_artikal], map: "Id_artikal")
   @@index([liflet_id], map: "liflet_id")
+}
+
+model liflet_finansije {
+  id         Int       @id @default(autoincrement())
+  Id_klijent Int?
+  dug        Boolean   @default(false)
+  iznos      Decimal   @default(0.00) @db.Decimal(10, 2)
+  datum      DateTime  @db.Date
+  valuta     DateTime? @db.Date
+  napomena   String?   @db.Text
+  klijenti   klijenti? @relation(fields: [Id_klijent], references: [ID_Klijent], onDelete: NoAction, onUpdate: NoAction, map: "liflet_finansije_ibfk_1")
+
+  @@index([Id_klijent], map: "Id_klijent")
 }
