@@ -1,6 +1,40 @@
+"use client";
+
 import { AppSidebar } from "@/components/app-sidebar";
-import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Toaster } from "sonner";
+
+function DashboardContent({ children }: { children: React.ReactNode }) {
+  const isMobile = useIsMobile();
+  const { state } = useSidebar();
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-screen">
+        <main className="flex-1 overflow-auto">
+          <div className="h-full w-full px-4 py-6">{children}</div>
+        </main>
+      </div>
+    );
+  }
+
+  // Desktop/tablet: account for sidebar width
+  const sidebarWidth = state === "collapsed" ? "3rem" : "16rem";
+
+  return (
+    <div
+      className="flex flex-col h-screen"
+      style={{ marginLeft: sidebarWidth }}
+    >
+      <main className="flex-1 overflow-auto">
+        <div className="h-full max-w-7xl mx-auto px-4 py-6 lg:px-8">
+          {children}
+        </div>
+      </main>
+    </div>
+  );
+}
 
 export default function DashboardLayout({
   children,
@@ -10,13 +44,7 @@ export default function DashboardLayout({
   return (
     <SidebarProvider>
       <AppSidebar />
-      <SidebarInset className="flex-1 flex flex-col h-screen">
-        <main className="flex-1 overflow-auto">
-          <div className="h-full max-w-7xl mx-auto px-0 py-6 lg:px-0">
-            {children}
-          </div>
-        </main>
-      </SidebarInset>
+      <DashboardContent>{children}</DashboardContent>
       <Toaster />
     </SidebarProvider>
   );

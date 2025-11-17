@@ -86,6 +86,7 @@ export default function LifletPage() {
   );
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [clientFilter, setClientFilter] = useState<string>("all");
   const [articleSearchTerm, setArticleSearchTerm] = useState("");
   const [searchedArticles, setSearchedArticles] = useState<
     Array<{
@@ -246,6 +247,8 @@ export default function LifletPage() {
         if (selectedLiflet?.id === id) {
           setSelectedLiflet(null);
           setLifletDetalji([]);
+          setClientFilter("all");
+          setSearchTerm("");
         }
       } else {
         toast.error("Failed to delete liflet");
@@ -726,7 +729,11 @@ export default function LifletPage() {
                             ? "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                             : ""
                         }`}
-                        onClick={() => setSelectedLiflet(liflet)}
+                        onClick={() => {
+                          setSelectedLiflet(liflet);
+                          setClientFilter("all");
+                          setSearchTerm("");
+                        }}
                       >
                         <td className="border border-border px-4 py-2">
                           {liflet.id}
@@ -1066,24 +1073,47 @@ export default function LifletPage() {
           <CardContent>
             {selectedLiflet ? (
               <div>
-                <div className="mb-4 flex items-center space-x-2">
-                  <Search className="w-4 h-4" />
-                  <Input
-                    placeholder="Search in liflet details..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="flex-1"
-                  />
+                <div className="mb-4 flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-1">
+                    <Search className="w-4 h-4" />
+                    <Input
+                      placeholder="Search articles..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="flex-1 max-w-xs"
+                    />
+                  </div>
+                  <Select value={clientFilter} onValueChange={setClientFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue placeholder="Filter by client" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Clients</SelectItem>
+                      {Array.from(
+                        new Set(
+                          lifletDetalji
+                            .filter((item) => item.klijenti?.Naziv)
+                            .map((item) => item.klijenti!.Naziv!)
+                        )
+                      )
+                        .sort()
+                        .map((clientName) => (
+                          <SelectItem key={clientName} value={clientName}>
+                            {clientName}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 <div className="overflow-x-auto w-full">
                   <table className="w-full border-collapse border border-border">
                     <thead>
                       <tr className="bg-muted/50">
-                        <th className="border border-border px-4 py-2 text-left w-fit min-w-0">
+                        <th className="border border-border px-2 py-2 text-left w-24 sm:w-32 md:w-48 lg:w-fit min-w-0">
                           Article
                         </th>
-                        <th className="border border-border px-4 py-2 text-left w-fit min-w-0">
+                        <th className="border border-border px-2 py-2 text-left w-24 sm:w-32 md:w-48 lg:w-fit min-w-0">
                           Client
                         </th>
                         <th className="border border-border px-4 py-2 text-left">
@@ -1092,25 +1122,35 @@ export default function LifletPage() {
                         <th className="border border-border px-4 py-2 text-left">
                           Promo Price
                         </th>
-                        <th className="border border-border px-4 py-2 text-left w-32">
+                        <th className="border border-border px-2 py-2 text-left w-16 sm:w-20 md:w-24 lg:w-32">
                           Image
                         </th>
-                        <th className="border border-border px-4 py-2 text-left">
+                        <th className="border border-border px-2 py-2 text-left">
                           Actions
                         </th>
                       </tr>
                     </thead>
                     <tbody>
                       {lifletDetalji
-                        .filter(
-                          (detalj) =>
+                        .filter((detalj) => {
+                          // Text search filter
+                          const matchesSearch =
+                            !searchTerm ||
                             detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
                               searchTerm.toLowerCase()
-                            ) || detalj.artikli?.BAR_CODE?.includes(searchTerm)
-                        )
+                            ) ||
+                            detalj.artikli?.BAR_CODE?.includes(searchTerm);
+
+                          // Client filter
+                          const matchesClient =
+                            clientFilter === "all" ||
+                            detalj.klijenti?.Naziv === clientFilter;
+
+                          return matchesSearch && matchesClient;
+                        })
                         .map((detalj) => (
                           <tr key={detalj.id} className="hover:bg-muted">
-                            <td className="border border-border px-4 py-2 w-64 min-w-0">
+                            <td className="border border-border px-2 py-2 w-24 sm:w-32 md:w-48 lg:w-64 min-w-0">
                               <div>
                                 <div className="font-medium">
                                   {detalj.artikli?.DESCRIPTION}
@@ -1123,7 +1163,7 @@ export default function LifletPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="border border-border px-4 py-2 min-w-0 w-64">
+                            <td className="border border-border px-2 py-2 w-24 sm:w-32 md:w-48 lg:w-64 min-w-0">
                               <div>
                                 <div className="font-medium">
                                   {detalj.klijenti?.Naziv}
@@ -1133,17 +1173,17 @@ export default function LifletPage() {
                                 </div>
                               </div>
                             </td>
-                            <td className="border border-border px-4 py-2">
+                            <td className="border border-border px-2 py-2">
                               {detalj.cena_redovna
                                 ? `${Number(detalj.cena_redovna).toFixed(2)}`
                                 : "-"}
                             </td>
-                            <td className="border border-border px-4 py-2">
+                            <td className="border border-border px-2 py-2">
                               {detalj.cena_akcija
                                 ? `${Number(detalj.cena_akcija).toFixed(2)}`
                                 : "-"}
                             </td>
-                            <td className="border border-border px-4 py-2 w-32 justify-center items-center">
+                            <td className="border border-border px-2 py-2 w-16 sm:w-20 md:w-24 lg:w-32 justify-center items-center">
                               {detalj.image ? (
                                 <img
                                   src={`/images/${detalj.image}`}
@@ -1151,7 +1191,7 @@ export default function LifletPage() {
                                     detalj.artikli?.DESCRIPTION ||
                                     "Article image"
                                   }
-                                  className="w-16 h-16 object-contain rounded cursor-pointer hover:opacity-80 mx-auto"
+                                  className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 object-contain rounded cursor-pointer hover:opacity-80 mx-auto"
                                   onClick={() =>
                                     window.open(
                                       `/images/${detalj.image}`,
@@ -1160,13 +1200,13 @@ export default function LifletPage() {
                                   }
                                 />
                               ) : (
-                                <div className="w-16 h-16 bg-muted rounded flex items-center justify-center">
-                                  <ImageIcon className="w-6 h-6 text-muted-foreground" />
+                                <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 bg-muted rounded flex items-center justify-center">
+                                  <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-muted-foreground" />
                                 </div>
                               )}
                             </td>
-                            <td className="border border-border px-4 py-2">
-                              <div className="flex space-x-2">
+                            <td className="border border-border px-2 py-2">
+                              <div className="flex space-x-1">
                                 <Button
                                   variant="outline"
                                   size="sm"
