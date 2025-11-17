@@ -1,0 +1,301 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model artikli {
+  Id_Artikal        Int              @id
+  DESCRIPTION       String?          @db.VarChar(255)
+  PRICE             String?          @db.Text
+  MAX_VALUE         String?          @db.Text
+  VAT_CODE          String?          @db.Text
+  ONE_ITEM          Boolean?
+  DEPARTMENT        String?          @db.Text
+  MES_TYPE          String?          @db.Text
+  ART_TYPE          String?          @db.Text
+  BAR_CODE          String?          @db.VarChar(255)
+  INVENTARY         String?          @db.Text
+  proizvodjac       String?          @db.VarChar(255)
+  Pakovanje         Decimal?         @db.Decimal(19, 4)
+  Poslednja_nabavna Decimal?         @db.Decimal(19, 4)
+  Prosecna_nabavna  Decimal?         @db.Decimal(19, 4)
+  Marza             Decimal?         @db.Decimal(19, 4)
+  Sifra_Dobavljca   String?          @db.VarChar(255)
+  ID_Klijent        Int?
+  C1                Decimal?         @db.Decimal(19, 4)
+  C2                Decimal?         @db.Decimal(19, 4)
+  C3                Decimal?         @db.Decimal(19, 4)
+  C4                Decimal?         @db.Decimal(19, 4)
+  U_cenovniku       Boolean?
+  IDB               Int?
+  Tip_ucesca        Int?
+  Iznos_Ucesca      Decimal?         @db.Decimal(19, 4)
+  ID_Robna_Grupa    Int?
+  Tezina_po_kom     Decimal?         @db.Decimal(19, 4)
+  PUMT              Boolean?
+  ID_Vozilo         Int?
+  Dozvoli_NulaUC    Boolean?
+  Opis              String?          @db.VarChar(255)
+  Max_Marza         Decimal?         @db.Decimal(19, 4)
+  Redosled_Stampe   Int?
+  Kalo              Decimal?         @db.Decimal(19, 4)
+  ID_Restoran       Int?
+  A_Dimenzija       Decimal?         @db.Decimal(19, 4)
+  B_Dimenzija       Decimal?         @db.Decimal(19, 4)
+  GpoM2             Decimal?         @db.Decimal(19, 4)
+  Planska_cena      Decimal?         @db.Decimal(19, 4)
+  Promocija         Boolean?
+  PromoKraj         DateTime?        @db.DateTime(0)
+  m2Pak             Decimal?         @db.Decimal(19, 4)
+  KgPak             Decimal?         @db.Decimal(19, 4)
+  PakPal            Decimal?         @db.Decimal(19, 4)
+  Naziv_J1          String?          @db.VarChar(255)
+  Naziv_J2          String?          @db.VarChar(255)
+  Ambalaza          Boolean?
+  Repromaterijal    Boolean?
+  Poluproizvod      Boolean?
+  Potrosni          Boolean?
+  ID_Podgrupa       Int?
+  ID_Raster         Int?
+  Pak_Bar_Code      String?          @db.VarChar(45)
+  liflet_detalji    liflet_detalji[]
+}
+
+model bar_code {
+  ID_BC      Int     @id
+  ID_Artikal Int?
+  Bar_Code   String? @db.VarChar(255)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model cenovnik {
+  id_artikal    Int?
+  id_prodavnica Int?
+  cena          Decimal? @db.Decimal(15, 5)
+
+  @@unique([id_artikal, id_prodavnica], map: "uq_artikal_prodavnica")
+  @@ignore
+}
+
+model dok_detalji {
+  dd_auto       BigInt        @id @default(autoincrement())
+  dd_godina     String        @db.Char(4)
+  dd_tip        String        @db.VarChar(20)
+  dd_broj       String        @db.VarChar(50)
+  dd_obj1       String        @db.VarChar(3)
+  dd_sifra      String        @db.VarChar(6)
+  dd_barkod     String?       @db.VarChar(13)
+  dd_kol1       Decimal?      @db.Decimal(18, 2)
+  dd_kol2       Decimal?      @db.Decimal(18, 2)
+  dd_kol3       Decimal?      @db.Decimal(18, 2)
+  dd_cena1      Decimal?      @default(0.00) @db.Decimal(10, 2)
+  dd_cena2      Decimal?      @default(0.00) @db.Decimal(10, 2)
+  created_at    DateTime?     @default(now()) @db.Timestamp(0)
+  updated_at    DateTime?     @default(now()) @db.DateTime(0)
+  dd_op_id      Int?
+  dok_zaglavlje dok_zaglavlje @relation(fields: [dd_godina, dd_tip, dd_broj, dd_obj1], references: [dok_godina, dok_tip, dok_broj, dok_obj1], onDelete: Cascade, map: "fk_detalji_zaglavlje")
+
+  @@index([dd_godina, dd_tip, dd_broj, dd_obj1], map: "fk_detalji_zaglavlje")
+  @@index([dd_barkod], map: "idx_barkod")
+  @@index([dd_sifra], map: "idx_sifra")
+}
+
+model dok_zaglavlje {
+  dok_id      BigInt        @id @default(autoincrement())
+  dok_godina  String        @db.Char(4)
+  dok_tip     String        @db.VarChar(20)
+  dok_broj    String        @db.VarChar(50)
+  dok_klijent Int?
+  dok_datum   DateTime      @db.Date
+  dok_vreme   DateTime      @db.Time(0)
+  dok_status  Int           @db.TinyInt
+  dok_obj1    String        @db.VarChar(3)
+  dok_obj2    String?       @db.VarChar(3)
+  dok_radnik  String?       @db.VarChar(60)
+  dok_opis    String?       @db.Text
+  dok_isvoce  Int?          @default(0) @db.TinyInt
+  created_at  DateTime?     @default(now()) @db.Timestamp(0)
+  updated_at  DateTime?     @default(now()) @db.DateTime(0)
+  dok_detalji dok_detalji[]
+
+  @@unique([dok_godina, dok_tip, dok_broj, dok_obj1], map: "uq_dok")
+  @@index([dok_status], map: "idx_status")
+  @@index([dok_tip], map: "idx_tip")
+}
+
+model klijenti {
+  ID_Klijent       Int                @id
+  Tip              String?            @db.VarChar(255)
+  Naziv            String?            @db.VarChar(255)
+  Adresa           String?            @db.VarChar(255)
+  Grad             String?            @db.VarChar(255)
+  Kontakt          String?            @db.VarChar(255)
+  Telefon          String?            @db.VarChar(255)
+  Fax              String?            @db.VarChar(255)
+  PIB              String?            @db.VarChar(255)
+  PDV              String?            @db.VarChar(255)
+  Maticni          String?            @db.VarChar(255)
+  Registracioni    String?            @db.VarChar(255)
+  Sifra            String?            @db.VarChar(255)
+  Ziro_racun       String?            @map("Ziro racun") @db.VarChar(255)
+  eMail            String?            @db.VarChar(255)
+  POcetno_stanje   String?            @db.VarChar(255)
+  Opis             String?            @db.VarChar(255)
+  PDV_Obveznik     Boolean?
+  Rabat            Decimal?           @db.Decimal(19, 4)
+  Logo             Int?
+  Valuta           Decimal?           @db.Decimal(19, 4)
+  PocetnoEvro      Decimal?           @db.Decimal(19, 4)
+  Region           Int?
+  Zatvoreno        Boolean?
+  ZIP_Grada        String?            @db.VarChar(255)
+  Sifra_Klijenta   String?            @db.VarChar(255)
+  ID_Cenovnik      Int?
+  PoljoprivredniP  Boolean?
+  Napomena         String?            @db.VarChar(255)
+  ID_Linija        Int?
+  ID_OL            Int?
+  Kupac_Kasa       Boolean?
+  Dvojno_OF        Boolean?
+  Limit            Decimal?           @db.Decimal(19, 4)
+  Fizicko_Lice     Boolean?
+  Sifra_Opstine    Int?
+  Drzava           String?            @db.VarChar(255)
+  Povezano_Lice    Boolean?
+  Puni_Naziv       String?            @db.VarChar(255)
+  liflet_zaglavlje liflet_zaglavlje[]
+}
+
+model korisnici {
+  id_korisnik Int      @id @default(autoincrement())
+  username    String?  @unique(map: "username") @db.VarChar(50)
+  password    String?  @db.VarChar(255)
+  active      Boolean? @default(true)
+}
+
+model operateri {
+  op_id          Int    @id @default(autoincrement())
+  op_ime_prezime String @db.VarChar(100)
+  op_lozinka     String @db.VarChar(8)
+  op_aktivan     Int    @default(1) @db.TinyInt
+  op_objekat     String @db.VarChar(100)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model prodavnice {
+  ID_Prodavnica            Int?
+  Naziv                    String?  @db.VarChar(255)
+  Broj                     String?  @db.Text
+  Adresa                   String?  @db.VarChar(255)
+  Grad                     String?  @db.VarChar(255)
+  Telefon                  String?  @db.VarChar(255)
+  MP                       Boolean?
+  Prefiks                  String?  @db.VarChar(255)
+  Sledeca_faktura          Int?
+  Sledeca_Kalkulacija      Int?
+  ID_Odgovorno_Lice        Int?
+  Osnovni_cenovnik         Boolean?
+  Sledeca_Otpremnica       Int?
+  Faktura_Bez_PDV          Boolean?
+  Kalkulacija_bez_prodajne Boolean?
+  Podrazumevana_LO1        Boolean?
+  Podrazumevana_LO2        Boolean?
+  ID_Linija                Int?
+  TRANZIT                  Boolean?
+  Samo_Usluga              Boolean?
+  Gotovi_Proizvodi         Boolean?
+  Putanja_Kasa             String?  @db.VarChar(255)
+  Repromaterijal           Boolean?
+  TIP_MAgacina             Int?
+  Otkup_SS                 Boolean?
+  Prefiks_OL               String?  @db.VarChar(255)
+  Sledeci_OL               Int?
+  Definisi_Prodajne        Boolean?
+  Automatska_Proizvodnja   Boolean?
+  Repro_Ugostitelj         Boolean?
+  MP_Fakture               Boolean?
+  Logo                     Boolean?
+  Memo                     Boolean?
+  Uvek_Radi_Dnevni         Boolean?
+  Sifra                    String?  @db.VarChar(255)
+  Trebovanje_po_prodajnoj  Boolean?
+  Nabavna_Rucno            Boolean?
+  Bez_prodajne_PP          Boolean?
+  Bez_Kasa2                Boolean?
+  GLN                      String?  @db.VarChar(255)
+
+  @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model robne_grupe {
+  ID_Robna_Grupa Int?
+  Naziv          String?  @db.VarChar(255)
+  Sifra          String?  @db.VarChar(255)
+  Zbirno         Boolean?
+  RG             Int?
+  Rabat          Decimal? @db.Decimal(19, 4)
+  Kalo           Decimal? @db.Decimal(19, 4)
+
+  @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model robne_grupe_podgrupe {
+  ID_Podgrupa    Int?
+  ID_Robna_grupa Int?
+  Naziv          String? @db.VarChar(255)
+  Sifra          String? @db.VarChar(255)
+
+  @@ignore
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model sinhro {
+  pr_klijent           String?   @db.TinyText
+  pr_dok               String?   @db.TinyText
+  pr_br_dok            String?   @db.TinyText
+  pr_obj_prima         String?   @db.TinyText
+  pr_obj_salje         String?   @db.TinyText
+  pr_sifra             String    @db.TinyText
+  pr_kolicina          String    @db.TinyText
+  pr_kolicina_kontrola Decimal?  @default(-1) @db.Decimal(10, 0)
+  pr_barcode           String?   @db.VarChar(13)
+  pr_status            Int?      @default(1) @db.TinyInt
+  pr_datetime          DateTime? @default(now()) @db.Timestamp(0)
+  isVoce               Boolean?  @default(false)
+
+  @@ignore
+}
+
+model liflet_zaglavlje {
+  id             Int              @id @default(autoincrement())
+  datum_od       DateTime         @db.Date
+  datum_do       DateTime         @db.Date
+  ID_Klijent     Int?
+  op_id          Int?
+  liflet_detalji liflet_detalji[]
+  klijenti       klijenti?        @relation(fields: [ID_Klijent], references: [ID_Klijent], onDelete: NoAction, onUpdate: NoAction, map: "liflet_zaglavlje_ibfk_1")
+
+  @@index([ID_Klijent], map: "ID_Klijent")
+}
+
+model liflet_detalji {
+  id               Int              @id @default(autoincrement())
+  liflet_id        Int
+  Id_artikal       Int
+  cena_akcija      Decimal?         @db.Decimal(10, 2)
+  cena_redovna     Decimal?         @db.Decimal(10, 2)
+  liflet_zaglavlje liflet_zaglavlje @relation(fields: [liflet_id], references: [id], onDelete: Cascade, map: "liflet_detalji_ibfk_1")
+  artikli          artikli          @relation(fields: [Id_artikal], references: [Id_Artikal], onDelete: NoAction, onUpdate: NoAction, map: "liflet_detalji_ibfk_2")
+
+  @@index([Id_artikal], map: "Id_artikal")
+  @@index([liflet_id], map: "liflet_id")
+}
