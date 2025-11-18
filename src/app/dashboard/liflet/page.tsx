@@ -630,6 +630,9 @@ export default function LifletPage() {
         body: JSON.stringify({
           prodavnice_ids: selectedProdavnice,
           artikli_data: artikliData,
+          napomena: selectedLiflet?.datum_do
+            ? "Akcijska cena do: " + formatSerbianDate(selectedLiflet.datum_do)
+            : null,
         }),
       });
 
@@ -894,6 +897,11 @@ export default function LifletPage() {
     );
   };
 
+  const formatSerbianDate = (date: string | Date) => {
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+    return dateObj.toLocaleDateString("sr-RS");
+  };
+
   return (
     <div className="flex flex-col gap-6 w-full">
       {/* Left Side - Liflet Zaglavlje */}
@@ -941,7 +949,7 @@ export default function LifletPage() {
                     <Input
                       id="datum_do"
                       type="date"
-                      value={formData.datum_do}
+                      value={formatSerbianDate(formData.datum_do)}
                       onChange={(e) =>
                         setFormData({ ...formData, datum_do: e.target.value })
                       }

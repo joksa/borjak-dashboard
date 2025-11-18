@@ -334,6 +334,7 @@ model cene_raf {
   id_artikal    Int?
   cena_akcija   Decimal  @default(0.00) @db.Decimal(15, 2)
   cena_redovna  Decimal  @default(0.00) @db.Decimal(15, 2)
+  napomena      String?  @db.VarChar(100)
   artikli       artikli? @relation(fields: [id_artikal], references: [Id_Artikal], onDelete: NoAction, onUpdate: NoAction, map: "fk_cene_raf_artikli")
 
   @@index([id_artikal], map: "idx_cene_raf_id_artikal")

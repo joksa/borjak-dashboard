@@ -43,6 +43,12 @@ import {
   Printer,
 } from "lucide-react";
 import { toast } from "sonner";
+import {
+  printCeneRaf,
+  printLifletPriceTags,
+  getFormatPreview,
+  type PrintConfig,
+} from "@/lib/print-utils";
 
 type CeneRaf = {
   id: number;
@@ -50,6 +56,7 @@ type CeneRaf = {
   id_artikal: number | null;
   cena_redovna: any; // Decimal type from Prisma
   cena_akcija: any; // Decimal type from Prisma
+  napomena: string | null;
   prodavnice?: {
     ID_Prodavnica: number;
     Naziv: string | null;
@@ -82,7 +89,7 @@ export default function CeneRafPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
 
   // Printing configuration state
-  const [printConfig, setPrintConfig] = useState({
+  const [printConfig, setPrintConfig] = useState<PrintConfig>({
     radnja: "",
     format: "",
     tip_cene: "",
@@ -100,6 +107,7 @@ export default function CeneRafPage() {
     id_artikal: "",
     cena_redovna: "",
     cena_akcija: "",
+    napomena: "",
   });
 
   const [articleSearchTerm, setArticleSearchTerm] = useState("");
@@ -235,6 +243,7 @@ export default function CeneRafPage() {
       id_artikal: "",
       cena_redovna: "",
       cena_akcija: "",
+      napomena: "",
     });
     setArticleSearchTerm("");
     setProdavnicaSearchTerm("");
@@ -307,6 +316,7 @@ export default function CeneRafPage() {
       cena_akcija: ceneRaf.cena_akcija
         ? Number(ceneRaf.cena_akcija).toString()
         : "",
+      napomena: ceneRaf.napomena || "",
     });
     setArticleSearchTerm(
       ceneRaf.artikli ? `${ceneRaf.artikli.DESCRIPTION}` : ""
@@ -326,33 +336,9 @@ export default function CeneRafPage() {
 
   const handlePrint = async () => {
     try {
-      // Get filtered data for the selected prodavnica and price type
-      const printData = ceneRaf.filter((item) => {
-        const matchesProdavnica =
-          item.id_prodavnica?.toString() === printConfig.radnja;
-
-        // Filter by price type
-        let hasValidPrice = false;
-        if (printConfig.tip_cene === "akcija") {
-          hasValidPrice = item.cena_akcija && Number(item.cena_akcija) > 0;
-        } else if (printConfig.tip_cene === "redovna") {
-          hasValidPrice = item.cena_redovna && Number(item.cena_redovna) > 0;
-        } else {
-          hasValidPrice = true; // Show all if no type selected
-        }
-
-        return matchesProdavnica && hasValidPrice;
-      });
-
-      if (printData.length === 0) {
-        toast.error("Nema podataka za štampanje za izabrane kriterijume");
-        return;
-      }
-
-      // Here you would implement the actual printing logic
-      // For now, we'll just show a success message
+      await printCeneRaf(ceneRaf, printConfig, printConfig.kopija);
       toast.success(
-        `Štampanje ${printData.length} artikala u formatu ${
+        `Štampanje ${ceneRaf.length} artikala u formatu ${
           printConfig.format
         } (${printConfig.kopija} kopija) - ${
           printConfig.tip_cene === "akcija"
@@ -362,20 +348,11 @@ export default function CeneRafPage() {
             : "Sve"
         } cene`
       );
-
-      console.log("Print data:", {
-        config: printConfig,
-        data: printData,
-      });
-
-      // TODO: Implement actual printing logic
-      // This could involve:
-      // 1. Generating PDF with the selected format
-      // 2. Sending to printer API
-      // 3. Using browser print API
     } catch (error) {
       console.error("Error printing:", error);
-      toast.error("Greška pri štampanju");
+      toast.error(
+        error instanceof Error ? error.message : "Greška pri štampanju"
+      );
     }
   };
 
@@ -412,240 +389,6 @@ export default function CeneRafPage() {
 
     return matchesSearch && matchesProdavnica;
   });
-
-  const stampajCeneZaRaf = async () => {
-    if (!selectedLiflet) {
-      toast.error("Please select a liflet first");
-      return;
-    }
-
-    try {
-      // Filter data based on current filters
-      const filteredData = lifletDetalji.filter((detalj) => {
-        const matchesSearch =
-          !searchTerm ||
-          detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
-            searchTerm.toLowerCase()
-          ) ||
-          detalj.artikli?.BAR_CODE?.includes(searchTerm);
-
-        const matchesClient =
-          clientFilter === "all" || detalj.klijenti?.Naziv === clientFilter;
-
-        return matchesSearch && matchesClient;
-      });
-
-      if (filteredData.length === 0) {
-        toast.error("No data to print");
-        return;
-      }
-
-      // Generate QR codes for all items
-      const qrCodesPromises = filteredData.map(async (detalj) => {
-        const qrData = `${
-          detalj.artikli?.Id_Artikal || detalj.artikli?.DESCRIPTION || ""
-        }`;
-        try {
-          const qrCodeDataURL = await QRCode.toDataURL(qrData, {
-            width: 80,
-            margin: 1,
-            color: {
-              dark: "#000000",
-              light: "#FFFFFF",
-            },
-          });
-          return qrCodeDataURL;
-        } catch (error) {
-          console.error("Error generating QR code:", error);
-          return "";
-        }
-      });
-
-      const qrCodes = await Promise.all(qrCodesPromises);
-
-      // Serbian number formatting function for HTML
-      const formatSerbianNumberHTML = (value: number) => {
-        return new Intl.NumberFormat("sr-RS", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(value);
-      };
-
-      // Create HTML content for price tags
-      // A4 dimensions in pixels at 300 DPI: 2480 x 3508
-      // Price tag: 6cm x 3.5cm = ~708px x ~413px at 300 DPI
-      // We'll fit 3 tags per row (with margins), so ~3.33 tags per row, let's do 3 per row
-      // 7 rows per page = 21 tags per page
-
-      let htmlContent = ``;
-
-      filteredData.forEach((detalj, index) => {
-        const qrCode = qrCodes[index];
-        const sifra = detalj.artikli?.Id_Artikal || "";
-        const articleName = detalj.artikli?.DESCRIPTION || "";
-        const barcode = detalj.artikli?.BAR_CODE || "";
-        const clientName = detalj.klijenti?.Naziv || "";
-        const regularPrice = detalj.cena_redovna
-          ? formatSerbianNumberHTML(Number(detalj.cena_redovna))
-          : "";
-        const promoPrice = detalj.cena_akcija
-          ? formatSerbianNumberHTML(Number(detalj.cena_akcija))
-          : "";
-
-        htmlContent += `
-          <div style="
-            width: 60mm; 
-            height: 35mm; 
-            border: 1px solid #000; 
-            background: white; 
-            box-sizing: border-box; 
-            padding: 2px; 
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-          ">
-        
-            <!-- TOP: Product name and QR -->
-            <div style="display: flex; justify-content: space-between;">
-              
-              <!-- Product info -->
-              <div style="flex: 1; padding-right: 2mm;">
-                <div style="font-size: 10px; font-weight: bold; color: #000; margin-bottom: 1mm;">
-                  ${articleName}
-                </div>
-        
-                <!-- Optional product details row -->
-                <div style="font-size: 6.5px; line-height: 1.2;">
-                  <div><strong>${sifra}</strong> | ${barcode}</div>
-                </div>
-              </div>
-        
-              <!-- QR code -->
-              <div style="width: 15mm; display: flex; align-items: center; justify-content: flex-end;">
-                ${
-                  qrCode
-                    ? `<img src="${qrCode}" alt="QR" style="width: 14mm; height: 14mm;" />`
-                    : ""
-                }
-              </div>
-            </div>
-        
-            <!-- BOTTOM: Red promo section -->
-            <div style="
-              display: flex; 
-              justify-content: space-between; 
-              align-items: center; 
-              margin-top: 2mm;
-            ">
-              
-              <!-- Left text -->
-              <div style="font-size: 7px; color: #b00; font-weight: bold;">
-                Akcijaska cena<br>
-                <span style="font-size: 6px; color: #555; font-weight: normal;">
-                  Akcija važi do: 
-                </span>
-                <span style="font-size: 6px; color: #555; font-weight: normal;">
-                  ${
-                    selectedLiflet?.datum_do
-                      ? new Date(selectedLiflet.datum_do).toLocaleDateString(
-                          "sr-RS"
-                        )
-                      : ""
-                  }
-                </span>
-              </div>
-        
-              <!-- Right red price box -->
-              <div style="
-                background: #b00;
-                color: white;
-                padding: 3px;
-                border-radius: 2px;
-                text-align: right;
-                width: 60%;
-              ">
-                <div style="font-size: 24px; font-weight: bold;">
-                  ${promoPrice} <span style="font-size: 8px;">RSD  </span>
-                </div>
-              <div style="font-size: 10px; opacity: 0.8;">
-                  <span style="text-decoration: line-through; display: inline-block;">
-                    ${regularPrice}
-                  </span>
-                  <span style="font-size: 6px; display: inline-block;">
-                    RSD
-                  </span>
-                </div>
-              </div>
-        
-            </div>
-        
-          </div>
-        `;
-      });
-
-      // Create a temporary element to render
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = htmlContent;
-      tempDiv.style.position = "absolute";
-      tempDiv.style.left = "-9999px";
-      tempDiv.style.top = "-9999px";
-      tempDiv.style.width = "210mm";
-      tempDiv.style.background = "white";
-      document.body.appendChild(tempDiv);
-
-      // Use html2canvas to render the HTML
-      const canvas = await html2canvas(tempDiv, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#ffffff",
-        width: 794, // 210mm at 96 DPI
-        height: Math.max(1123, tempDiv.scrollHeight), // 297mm at 96 DPI, but adjust for content
-      });
-
-      // Remove temporary element
-      document.body.removeChild(tempDiv);
-
-      // Create PDF from canvas
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const imgWidth = 210; // A4 width in mm
-      const pageHeight = 297; // A4 height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-
-      let position = 0;
-
-      // Add first page
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      // Add additional pages if needed
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      // Save the PDF
-      const fileName = `cene_za_raf_${selectedLiflet.id}_${
-        new Date().toISOString().split("T")[0]
-      }.pdf`;
-      pdf.save(fileName);
-
-      toast.success(`Generisan PDF sa ${filteredData.length} artikala`);
-    } catch (error) {
-      console.error("Error generating price tags PDF:", error);
-      toast.error("Failed to generate price tags PDF");
-    }
-  };
 
   return (
     <div className="flex flex-col gap-6 w-full">
@@ -772,6 +515,20 @@ export default function CeneRafPage() {
                     }
                     className="col-span-3"
                     placeholder="0.00"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="napomena" className="text-right">
+                    Napomena
+                  </Label>
+                  <Input
+                    id="napomena"
+                    value={formData.napomena}
+                    onChange={(e) =>
+                      setFormData({ ...formData, napomena: e.target.value })
+                    }
+                    className="col-span-3"
+                    placeholder="Opciono: Unesite napomenu"
                   />
                 </div>
               </div>
@@ -1109,162 +866,16 @@ export default function CeneRafPage() {
             {/* Right Column - Print Preview */}
             <div className="space-y-4">
               <h3 className="text-lg font-semibold">Pregled štampanja</h3>
-
               {printConfig.format ? (
-                <div className="border-2 border-dashed border-border rounded-lg p-4">
-                  {printConfig.format === "5x3" && (
-                    <div className="bg-white border border-gray-300 rounded p-3 text-center max-w-xs mx-auto">
-                      <div className="text-xs font-bold mb-1">
-                        NAZIV ARTIKLA
-                      </div>
-                      <div className="text-xs mb-1">Šifra: 12345</div>
-                      <div className="text-xs mb-2">Klijent: Prodavnica</div>
-                      <div className="text-lg font-bold text-red-600">
-                        {printConfig.tip_cene === "akcija"
-                          ? "AKCIJA"
-                          : "REDOVNA"}
-                      </div>
-                      <div className="text-xl font-bold">99.99 RSD</div>
-                    </div>
-                  )}
-
-                  {printConfig.format === "6x4" && (
-                    <div className="bg-white border border-gray-300 rounded p-4 text-center max-w-sm mx-auto">
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="text-xs">
-                          <div className="font-bold">NAZIV ARTIKLA</div>
-                          <div>Šifra: 12345</div>
-                        </div>
-                        <div className="text-xs">📱</div>
-                      </div>
-                      <div className="text-xs mb-3">Klijent: Prodavnica</div>
-                      <div className="bg-red-100 p-2 rounded">
-                        <div className="text-sm font-bold text-red-600 mb-1">
-                          {printConfig.tip_cene === "akcija"
-                            ? "AKCIJSKA CENA"
-                            : "REDOVNA CENA"}
-                        </div>
-                        <div className="text-2xl font-bold">99.99 RSD</div>
-                        {printConfig.tip_cene === "akcija" && (
-                          <div className="text-xs line-through text-gray-500">
-                            129.99 RSD
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {printConfig.format === "10x10x" && (
-                    <div className="bg-white border border-gray-300 rounded p-6 text-center max-w-md mx-auto">
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm font-bold mb-2">
-                            NAZIV ARTIKLA
-                          </div>
-                          <div className="text-xs mb-1">Šifra: 12345</div>
-                          <div className="text-xs">Klijent: Prodavnica</div>
-                        </div>
-                        <div className="text-xs">📱 QR CODE</div>
-                      </div>
-                      <div className="mt-4 bg-red-100 p-3 rounded">
-                        <div className="text-sm font-bold text-red-600 mb-1">
-                          {printConfig.tip_cene === "akcija"
-                            ? "AKCIJA"
-                            : "REDOVNA CENA"}
-                        </div>
-                        <div className="text-3xl font-bold">99.99 RSD</div>
-                        {printConfig.tip_cene === "akcija" && (
-                          <div className="text-sm line-through text-gray-500 mt-1">
-                            129.99 RSD
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-
-                  {printConfig.format === "A5" && (
-                    <div className="bg-white border border-gray-300 rounded p-8 text-center">
-                      <h2 className="text-xl font-bold mb-4">BORJAK ZTR</h2>
-                      <div className="text-sm mb-6">Todorovića 7, Kraljevo</div>
-                      <h3 className="text-lg font-bold mb-4">CENE ARTIKALA</h3>
-                      <table className="w-full border-collapse border border-gray-300 text-sm">
-                        <thead>
-                          <tr className="bg-gray-100">
-                            <th className="border border-gray-300 p-2">
-                              Artikal
-                            </th>
-                            <th className="border border-gray-300 p-2">
-                              Šifra
-                            </th>
-                            <th className="border border-gray-300 p-2">
-                              {printConfig.tip_cene === "akcija"
-                                ? "Akcijska cena"
-                                : "Redovna cena"}
-                            </th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td className="border border-gray-300 p-2">
-                              NAZIV ARTIKLA
-                            </td>
-                            <td className="border border-gray-300 p-2">
-                              12345
-                            </td>
-                            <td className="border border-gray-300 p-2 font-bold">
-                              99.99 RSD
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-
-                  {printConfig.format === "A4" && (
-                    <div className="bg-white border border-gray-300 rounded p-8 text-center">
-                      <h1 className="text-2xl font-bold mb-4">BORJAK ZTR</h1>
-                      <div className="text-lg mb-6">Todorovića 7, Kraljevo</div>
-                      <h2 className="text-xl font-bold mb-6">
-                        CENOVNIK -{" "}
-                        {printConfig.tip_cene === "akcija"
-                          ? "AKCIJSKE CENE"
-                          : "REDOVNE CENE"}
-                      </h2>
-                      <table className="w-full border-collapse border border-gray-300 text-sm">
-                        <thead>
-                          <tr className="bg-gray-100">
-                            <th className="border border-gray-300 p-3">
-                              Artikal
-                            </th>
-                            <th className="border border-gray-300 p-3">
-                              Šifra
-                            </th>
-                            <th className="border border-gray-300 p-3">
-                              Klijent
-                            </th>
-                            <th className="border border-gray-300 p-3">Cena</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td className="border border-gray-300 p-3">
-                              NAZIV ARTIKLA
-                            </td>
-                            <td className="border border-gray-300 p-3">
-                              12345
-                            </td>
-                            <td className="border border-gray-300 p-3">
-                              Prodavnica
-                            </td>
-                            <td className="border border-gray-300 p-3 font-bold">
-                              99.99 RSD
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
-                    </div>
-                  )}
-                </div>
+                <div
+                  className="border-2 border-dashed border-border rounded-lg p-4"
+                  dangerouslySetInnerHTML={{
+                    __html: getFormatPreview(
+                      printConfig.format,
+                      printConfig.tip_cene
+                    ),
+                  }}
+                />
               ) : (
                 <div className="border-2 border-dashed border-border rounded-lg p-8 text-center text-muted-foreground">
                   Izaberite format da vidite pregled štampanja
@@ -1331,6 +942,20 @@ export default function CeneRafPage() {
                 }
                 className="col-span-3"
                 placeholder="0.00"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="edit_napomena" className="text-right">
+                Napomena
+              </Label>
+              <Input
+                id="edit_napomena"
+                value={formData.napomena}
+                onChange={(e) =>
+                  setFormData({ ...formData, napomena: e.target.value })
+                }
+                className="col-span-3"
+                placeholder="Opciono: Unesite napomenu"
               />
             </div>
           </div>

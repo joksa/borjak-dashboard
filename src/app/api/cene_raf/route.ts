@@ -82,6 +82,7 @@ export async function GET(request: NextRequest) {
       id_artikal: item.id_artikal,
       cena_redovna: item.cena_redovna,
       cena_akcija: item.cena_akcija,
+      napomena: item.napomena,
       artikli: item.id_artikal ? artikliMap.get(item.id_artikal) : null,
       prodavnice: item.id_prodavnica
         ? prodavniceMap.get(item.id_prodavnica)
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
 
     // Check if it's a bulk operation (array of prodavnice_ids)
     if (body.prodavnice_ids && Array.isArray(body.prodavnice_ids)) {
-      const { prodavnice_ids, artikli_data } = body;
+      const { prodavnice_ids, artikli_data, napomena } = body;
 
       if (!artikli_data || !Array.isArray(artikli_data)) {
         return NextResponse.json(
@@ -121,6 +122,41 @@ export async function POST(request: NextRequest) {
         );
       }
 
+      // Validate that artikli exist
+      const artikalIds = artikli_data.map((artikal) =>
+        parseInt(artikal.Id_artikal)
+      );
+      const existingArtikli = await prisma.artikli.findMany({
+        where: {
+          Id_Artikal: {
+            in: artikalIds,
+          },
+        },
+        select: {
+          Id_Artikal: true,
+        },
+      });
+
+      const existingArtikalIds = existingArtikli.map(
+        (artikal) => artikal.Id_Artikal
+      );
+      const invalidArtikalIds = artikalIds.filter(
+        (id) => !existingArtikalIds.includes(id)
+      );
+
+      if (invalidArtikalIds.length > 0) {
+        return NextResponse.json(
+          {
+            error: `Artikli sa ID-ovima ${invalidArtikalIds.join(
+              ", "
+            )} ne postoje`,
+          },
+          { status: 400 }
+        );
+      }
+
+      // Generate napomena if datum_do is provided and there are akcijske cene
+
       // Create records for each combination of prodavnica and artikal
       const recordsToCreate = [];
 
@@ -128,13 +164,16 @@ export async function POST(request: NextRequest) {
         for (const artikal of artikli_data) {
           recordsToCreate.push({
             id_prodavnica: parseInt(prodavnica_id),
-            id_artikal: parseInt(artikal.Id_artikal),
+            artikli: {
+              connect: { Id_Artikal: parseInt(artikal.Id_artikal) },
+            },
             cena_redovna: artikal.cena_redovna
               ? parseFloat(artikal.cena_redovna)
               : 0.0,
             cena_akcija: artikal.cena_akcija
               ? parseFloat(artikal.cena_akcija)
               : 0.0,
+            napomena: napomena,
           });
         }
       }
@@ -152,14 +191,20 @@ export async function POST(request: NextRequest) {
       });
     } else {
       // Single record creation (existing logic)
-      const { id_prodavnica, id_artikal, cena_redovna, cena_akcija } = body;
+      const { id_prodavnica, id_artikal, cena_redovna, cena_akcija, napomena } =
+        body;
 
       const result = await prisma.cene_raf.create({
         data: {
           id_prodavnica: id_prodavnica ? parseInt(id_prodavnica) : null,
-          id_artikal: id_artikal ? parseInt(id_artikal) : null,
+          artikli: id_artikal
+            ? {
+                connect: { Id_Artikal: parseInt(id_artikal) },
+              }
+            : undefined,
           cena_redovna: cena_redovna ? parseFloat(cena_redovna) : 0.0,
           cena_akcija: cena_akcija ? parseFloat(cena_akcija) : 0.0,
+          napomena: napomena || null,
         },
       });
 
