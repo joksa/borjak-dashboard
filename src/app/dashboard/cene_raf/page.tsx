@@ -91,7 +91,7 @@ export default function CeneRafPage() {
   // Printing configuration state
   const [printConfig, setPrintConfig] = useState<PrintConfig>({
     radnja: "",
-    format: "",
+    format: "6x4",
     tip_cene: "",
     kopija: 1,
   });
@@ -802,11 +802,7 @@ export default function CeneRafPage() {
                     <SelectValue placeholder="Izaberite format" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="5x3">5x3 cm</SelectItem>
                     <SelectItem value="6x4">6x4 cm</SelectItem>
-                    <SelectItem value="10x10x">10x10x cm</SelectItem>
-                    <SelectItem value="A5">A5</SelectItem>
-                    <SelectItem value="A4">A4</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

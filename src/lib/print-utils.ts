@@ -121,6 +121,7 @@ export const format6x4 = (
   qrCode?: string,
   tip_cene?: string
 ): string => {
+  const tipCene = tip_cene || "akcija";
   const sifra = item.artikli?.Id_Artikal || "";
   const articleName = item.artikli?.DESCRIPTION || "";
   const barcode = item.artikli?.BAR_CODE || "";
@@ -171,7 +172,7 @@ export const format6x4 = (
             </div>     
             
             ${
-              napomena && napomena.trim() !== ""
+              napomena && napomena.trim() !== "" && promoPrice > 0
                 ? `
                   <div style="
                     margin-top: 1px;
@@ -186,10 +187,10 @@ export const format6x4 = (
     </div>
 
     <!-- QR Code -->
-    <div style="width: 50px; display: flex; align-items: center; justify-content: flex-end;">
+    <div style="width: 54px; display: flex; align-items: center; justify-content: flex-end;">
       ${
         qrCode
-          ? `<img src="${qrCode}" alt="QR" style="width: 48px; height: 48px;" />`
+          ? `<img src="${qrCode}" alt="QR" style="width: 54px; height: 54px;" />`
           : ""
       }
     </div>
@@ -205,12 +206,18 @@ export const format6x4 = (
     color: #000;
   ">
 
-  <div style="display: flex; width: 100px; justify-content: center; align-items: center">
-              <span style="position: absolute; inset: 0; font-size: 18px; width: 100px; justify-content: center; align-items: center;">${
-                promoPrice > 0 ? formatSerbianNumberHTML(regularPrice) : ""
-              }</span>
-              <span style="position: absolute; inset: 0; font-size: 16px; width: 100px; justify-content: center; align-items: center;  padding-left: 5px;  ">${
-                promoPrice > 0 ? "──────" : ""
+  <div style="display: flex; width: 100px; justify-content: center; align-items: center;">
+              <span style="position: absolute; inset: 0; font-size: 18px; line-height: 1.5; padding-left: ${
+                regularPrice < 100
+                  ? "15px"
+                  : regularPrice < 1000
+                  ? "10px"
+                  : "2px"
+              };">${
+    promoPrice > 0 ? formatSerbianNumberHTML(regularPrice) : ""
+  }</span>
+              <span style="position: absolute; inset: 0; font-size: 16px; line-height: 1.5; width: 70px;">${
+                promoPrice > 0 ? "───────" : ""
               }</span>            
           </div>
   </div>
@@ -449,96 +456,136 @@ export const formatA4 = (items: PrintItem[]): string => {
   `;
 };
 
-// Price tag format (adapted from existing liflet format)
+// Price tag format (adapted from format6x4 layout)
 export const formatPriceTag = (
   item: LifletPrintData,
   selectedLiflet?: any
 ): string => {
-  const qrCode = item.artikli?.Id_Artikal || item.artikli?.DESCRIPTION || "";
   const sifra = item.artikli?.Id_Artikal || "";
   const articleName = item.artikli?.DESCRIPTION || "";
   const barcode = item.artikli?.BAR_CODE || "";
   const clientName = item.klijenti?.Naziv || "";
-  const regularPrice = item.cena_redovna
-    ? formatSerbianNumberHTML(Number(item.cena_redovna))
-    : "";
-  const promoPrice = item.cena_akcija
-    ? formatSerbianNumberHTML(Number(item.cena_akcija))
-    : "";
+  const regularPrice = item.cena_redovna ? Number(item.cena_redovna) : 0;
+  const promoPrice = item.cena_akcija ? Number(item.cena_akcija) : 0;
+  const displayPrice = promoPrice > 0 ? promoPrice : regularPrice;
 
-  return `
-    <div style="
-      width: 60mm;
-      height: 35mm;
-      border: 1px solid #000;
-      background: white;
-      box-sizing: border-box;
-      padding: 2px;
-      font-family: Arial, sans-serif;
-      display: flex;
-      flex-direction: column;
-      justify-content: space-between;
-    ">
-      <div style="display: flex; justify-content: space-between;">
-        <div style="flex: 1; padding-right: 2mm;">
-          <div style="font-size: 10px; font-weight: bold; color: #000; margin-bottom: 1mm;">
-            ${articleName}
-          </div>
-          <div style="font-size: 6.5px; line-height: 1.2;">
-            <div><strong>${sifra}</strong> | ${barcode}</div>
-          </div>
-        </div>
-        <div style="width: 15mm; display: flex; align-items: center; justify-content: flex-end;">
-          ${
-            qrCode
-              ? `<div style="width: 14mm; height: 14mm; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 6px;">QR</div>`
-              : ""
-          }
-        </div>
+  return `<div style="
+  width: calc((210mm - 10mm) / 3);
+  height: 35mm;
+  border: 1px solid #000;
+  background: white;
+  box-sizing: border-box;
+  padding: 2px;
+  font-family: Arial, sans-serif;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+">
+
+  <!-- Top Section -->
+  <div style="display: flex; justify-content: space-between;">
+    <div style="flex: 1; padding-right: 6px;">
+
+      <!-- Article Name -->
+      <div style="font-size: 12px; font-weight: bold; color: #000; margin-bottom: 0px; margin: 0; padding: 0; line-height: 1;">
+        ${articleName}
       </div>
 
-      <div style="
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-top: 2mm;
-      ">
-        <div style="font-size: 7px; color: #b00; font-weight: bold;">
-          Akcijska cena<br>
-          <span style="font-size: 6px; color: #555; font-weight: normal;">
-            Akcija važi do:
-          </span>
-          <span style="font-size: 6px; color: #555; font-weight: normal;">
-            ${
-              selectedLiflet?.datum_do
-                ? new Date(selectedLiflet.datum_do).toLocaleDateString("sr-RS")
-                : ""
-            }
-          </span>
-        </div>
-
-        <div style="
-          background: #b00;
-          color: white;
-          padding: 3px;
-          border-radius: 2px;
-          text-align: right;
-          width: 60%;
-        ">
-          <div style="font-size: 24px; font-weight: bold;">
-            ${promoPrice} <span style="font-size: 8px;">RSD  </span>
-          </div>
-          <div style="font-size: 10px; opacity: 0.8;">
-            <span style="display: inline-block;">
-              ${regularPrice}
-            </span>
-            <span style="font-size: 6px; display: inline-block;">
-              RSD
-            </span>
-          </div>
-        </div>
+      <!-- Sifra + Barcode -->
+      <div style="font-size: 12px;">
+        <div><strong>${sifra}</strong> | ${barcode}</div>
       </div>
+
+    <div style="margin-top: 1px; font-size: 9px;">
+              JM:
+              <span>KOM</span>
+            </div>
+
+              <div style="margin-top: 1px; font-size: 9px;">
+              Jedinična cena:
+              <span>1.234,56 rsd/kg</span>
+            </div>
+
+            <div style="font-size: 9px; color: #b00; font-weight: bold;">
+              Akcijska cena<br>
+              <span style="font-size: 8px; color: #555; font-weight: normal;">
+                Akcija važi do:
+              </span>
+              <span style="font-size: 8px; color: #555; font-weight: normal;">
+                ${
+                  selectedLiflet?.datum_do
+                    ? new Date(selectedLiflet.datum_do).toLocaleDateString(
+                        "sr-RS"
+                      )
+                    : ""
+                }
+              </span>
+            </div>
     </div>
+
+    <!-- QR Code -->
+    <div style="width: 50px; display: flex; align-items: center; justify-content: flex-end;">
+      <div style="width: 48px; height: 48px; background: #f0f0f0; display: flex; align-items: center; justify-content: center; font-size: 8px;">QR</div>
+    </div>
+  </div>
+
+  <!-- ABSOLUTE PRICE (bottom-right) -->
+  <div style="position: relative; width: 100%; height: 40%;">
+   <div style="
+    position: absolute;
+    bottom: 36px;
+    left: 8px;
+    font-weight: bold;
+    color: #000;
+  ">
+
+  <div style="display: flex; width: 100px; justify-content: center; align-items: center;">
+              <span style="position: absolute; inset: 0; font-size: 18px; width: 100px; display: flex; justify-content: center; align-items: center;">${
+                promoPrice > 0 ? formatSerbianNumberHTML(regularPrice) : ""
+              }</span>
+              <span style="position: absolute; inset: 0; font-size: 16px; width: 100px; display: flex; justify-content: center; align-items: center; ">${
+                promoPrice > 0 ? "──────" : ""
+              }</span>
+          </div>
+  </div>
+
+
+  <div style="
+    position: absolute;
+    bottom: 8px;
+    right: 0;
+    display: flex;
+    align-items: flex-end;
+    gap: 4px;
+    font-weight: bold;
+    color: #000;
+  ">
+
+
+    <!-- Price -->
+    <span style="font-size: 40px; ">
+      ${formatSerbianNumberHTML(promoPrice > 0 ? promoPrice : regularPrice)}
+    </span>
+
+    <!-- Vertical RSD -->
+  <span style="
+  font-size: 12px;
+  font-weight: bold;
+  transform: rotate(0deg);
+  transform-origin: center;
+  display: inline-block;
+  margin-left: 0px;
+  line-height: 1;
+  text-align: center;
+">
+  R<br>S<br>D
+</span>
+
+  </div>
+</div>
+
+</div>
+
   `;
 };
 
@@ -549,7 +596,7 @@ export const printCeneRaf = async (
   copies: number = 1
 ): Promise<void> => {
   try {
-    let htmlContent = "";
+    let htmlContent: string | string[] = "";
 
     // Filter items based on config
     const filteredItems = items.filter((item) => {
@@ -612,6 +659,7 @@ export const printCeneRaf = async (
 
       // Arrange items in a grid layout
       const itemsPerRow = 3; // 3 items per row
+      const rowsPerPage = config.format === "6x4" ? 8 : 10; // 8 rows per page for 6x4 format
       const rows: string[] = [];
 
       for (let i = 0; i < itemContents.length; i += itemsPerRow) {
@@ -623,43 +671,38 @@ export const printCeneRaf = async (
         `);
       }
 
-      htmlContent = `
-        <div style="
-          width: 210mm;
-          background: white;
-          padding: 5mm;
-          font-family: Arial, sans-serif;
-        ">
-          ${rows.join("")}
-        </div>
-      `;
+      // For 6x4 format, split into pages with 8 rows each
+      if (config.format === "6x4") {
+        const pages: string[] = [];
+        for (let i = 0; i < rows.length; i += rowsPerPage) {
+          const pageRows = rows.slice(i, i + rowsPerPage);
+          pages.push(`
+            <div style="
+              width: 210mm;
+              background: white;
+              padding: 5mm;
+              font-family: Arial, sans-serif;
+            ">
+              ${pageRows.join("")}
+            </div>
+          `);
+        }
+        htmlContent = pages;
+      } else {
+        htmlContent = `
+          <div style="
+            width: 210mm;
+            background: white;
+            padding: 5mm;
+            font-family: Arial, sans-serif;
+          ">
+            ${rows.join("")}
+          </div>
+        `;
+      }
     }
 
-    // Create temporary element for rendering
-    const tempDiv = document.createElement("div");
-    tempDiv.innerHTML = htmlContent;
-    tempDiv.style.position = "absolute";
-    tempDiv.style.left = "-9999px";
-    tempDiv.style.top = "-9999px";
-    tempDiv.style.width = config.format === "A4" ? "297mm" : "210mm";
-    tempDiv.style.background = "white";
-    document.body.appendChild(tempDiv);
-
-    // Render with html2canvas
-    const canvas = await html2canvas(tempDiv, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: "#ffffff",
-      width: config.format === "A4" ? 1123 : 794, // A4: 297mm, A5/other: 210mm at 96 DPI
-      height: Math.max(1123, tempDiv.scrollHeight),
-    });
-
-    // Remove temporary element
-    document.body.removeChild(tempDiv);
-
     // Create PDF
-    const imgData = canvas.toDataURL("image/png");
     const pdf = new jsPDF({
       orientation: "portrait",
       unit: "mm",
@@ -668,20 +711,85 @@ export const printCeneRaf = async (
 
     const imgWidth = config.format === "A4" ? 210 : 148; // A4 width: 210mm, A5: 148mm
     const pageHeight = config.format === "A4" ? 297 : 210; // A4 height: 297mm, A5: 210mm
-    const imgHeight = (canvas.height * imgWidth) / canvas.width;
-    let heightLeft = imgHeight;
-    let position = 0;
 
-    // Add first page
-    pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-    heightLeft -= pageHeight;
+    // Handle different content structures
+    if (Array.isArray(htmlContent)) {
+      // Multiple pages (6x4 format with 8 rows per page)
+      for (const pageContent of htmlContent) {
+        // Create temporary element for rendering
+        const tempDiv = document.createElement("div");
+        tempDiv.innerHTML = pageContent;
+        tempDiv.style.position = "absolute";
+        tempDiv.style.left = "-9999px";
+        tempDiv.style.top = "-9999px";
+        tempDiv.style.width = "210mm";
+        tempDiv.style.background = "white";
+        document.body.appendChild(tempDiv);
 
-    // Add additional pages if needed
-    while (heightLeft >= 0) {
-      position = heightLeft - imgHeight;
-      pdf.addPage();
+        // Render with html2canvas
+        const canvas = await html2canvas(tempDiv, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: "#ffffff",
+          width: 794, // 210mm at 96 DPI
+          height: Math.max(1123, tempDiv.scrollHeight),
+        });
+
+        // Remove temporary element
+        document.body.removeChild(tempDiv);
+
+        const imgData = canvas.toDataURL("image/png");
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+
+        // Add page to PDF
+        if (htmlContent.indexOf(pageContent) > 0) {
+          pdf.addPage();
+        }
+        pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+      }
+    } else {
+      // Single content block (other formats)
+      // Create temporary element for rendering
+      const tempDiv = document.createElement("div");
+      tempDiv.innerHTML = htmlContent;
+      tempDiv.style.position = "absolute";
+      tempDiv.style.left = "-9999px";
+      tempDiv.style.top = "-9999px";
+      tempDiv.style.width = config.format === "A4" ? "297mm" : "210mm";
+      tempDiv.style.background = "white";
+      document.body.appendChild(tempDiv);
+
+      // Render with html2canvas
+      const canvas = await html2canvas(tempDiv, {
+        scale: 2,
+        useCORS: true,
+        allowTaint: true,
+        backgroundColor: "#ffffff",
+        width: config.format === "A4" ? 1123 : 794, // A4: 297mm, A5/other: 210mm at 96 DPI
+        height: Math.max(1123, tempDiv.scrollHeight),
+      });
+
+      // Remove temporary element
+      document.body.removeChild(tempDiv);
+
+      // Create PDF content
+      const imgData = canvas.toDataURL("image/png");
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      // Add first page
       pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
       heightLeft -= pageHeight;
+
+      // Add additional pages if needed
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
     }
 
     // Save PDF
@@ -788,7 +896,7 @@ export const getFormatPreview = (format: string, tip_cene: string): string => {
     id: 1,
     id_prodavnica: 1,
     id_artikal: 12345,
-    cena_redovna: 129.99,
+    cena_redovna: 1129.99,
     cena_akcija: 99.99,
     napomena: null,
     artikli: {
