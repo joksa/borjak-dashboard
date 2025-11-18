@@ -44,7 +44,7 @@ import {
 // Menu items.
 const items = [
   {
-    title: "Dashboard",
+    title: "Tabla",
     url: "/dashboard",
     icon: Home,
   },
@@ -68,6 +68,11 @@ const items = [
     ],
   },
   {
+    title: "Cene Raf",
+    url: "/dashboard/cene_raf",
+    icon: DollarSign,
+  },
+  /*{
     title: "Analytics",
     url: "/dashboard/analytics",
     icon: BarChart3,
@@ -124,7 +129,7 @@ const items = [
     title: "Settings",
     url: "/dashboard/settings",
     icon: Settings,
-  },
+  },*/
 ];
 
 export function AppSidebar() {
@@ -134,20 +139,23 @@ export function AppSidebar() {
     <Sidebar collapsible="icon">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-4 py-2">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground">
-            <TrendingUp className="h-4 w-4" />
+          <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-primary text-primary-foreground overflow-hidden">
+            <img
+              src="/logo.png"
+              alt="Borjak"
+              className="h-16 w-16 object-contain rounded-lg"
+            />
           </div>
           <div className="grid flex-1 text-left text-sm leading-tight">
-            <span className="truncate font-semibold">Business Dashboard</span>
+            <span className="truncate font-semibold">Borjak</span>
             <span className="truncate text-xs text-muted-foreground">
-              Enterprise
+              Kontrolna Tabla
             </span>
           </div>
         </div>
       </SidebarHeader>
       <SidebarContent>
         <SidebarGroup>
-          <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
               {items.map((item) => {
@@ -206,19 +214,15 @@ export function AppSidebar() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Admin User</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem>
-                <User className="mr-2 h-4 w-4" />
-                Profile
-              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => (window.location.href = "/")}>
                 <LogOut className="mr-2 h-4 w-4" />
-                Logout
+                Odjavi se
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
         <div className="px-4 pb-2 text-xs text-muted-foreground text-center">
-          © 2024 Business Dashboard
+          © 2025 Borjak
         </div>
       </SidebarFooter>
     </Sidebar>

@@ -62,6 +62,7 @@ model artikli {
   ID_Podgrupa       Int?
   ID_Raster         Int?
   Pak_Bar_Code      String?          @db.VarChar(45)
+  cene_raf          cene_raf[]
   liflet_detalji    liflet_detalji[]
 }
 
@@ -325,4 +326,16 @@ model klijenti_racuni {
   klijenti     klijenti @relation(fields: [Id_klijent], references: [ID_Klijent], onDelete: NoAction, onUpdate: NoAction, map: "klijenti_racuni_ibfk_1")
 
   @@index([Id_klijent], map: "Id_klijent")
+}
+
+model cene_raf {
+  id            Int      @id @default(autoincrement())
+  id_prodavnica Int?
+  id_artikal    Int?
+  cena_akcija   Decimal  @default(0.00) @db.Decimal(15, 2)
+  cena_redovna  Decimal  @default(0.00) @db.Decimal(15, 2)
+  artikli       artikli? @relation(fields: [id_artikal], references: [Id_Artikal], onDelete: NoAction, onUpdate: NoAction, map: "fk_cene_raf_artikli")
+
+  @@index([id_artikal], map: "idx_cene_raf_id_artikal")
+  @@index([id_prodavnica], map: "idx_cene_raf_id_prodavnica")
 }

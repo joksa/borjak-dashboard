@@ -46,64 +46,6 @@ import {
   Download,
 } from "lucide-react";
 import { toast } from "sonner";
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
-import html2canvas from "html2canvas";
-// @ts-ignore
-import QRCode from "qrcode";
-
-// Unified PDF header function with Serbian character support
-const addPDFHeader = async (pdf: jsPDF, title: string, subtitle?: string) => {
-  // Add logo (if available)
-  try {
-    // Create an image element to load the logo
-    const img = new Image();
-    img.crossOrigin = "anonymous";
-
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = "/logo.png";
-    });
-
-    // Convert image to canvas for PDF
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-    canvas.width = img.width;
-    canvas.height = img.height;
-    ctx?.drawImage(img, 0, 0);
-
-    const imgData = canvas.toDataURL("image/png");
-    pdf.addImage(imgData, "PNG", 20, 20, 25, 25);
-  } catch (error) {
-    console.log("Logo not available, continuing without logo");
-  }
-
-  // Add company info with proper Serbian characters
-  pdf.setFontSize(18);
-  pdf.text("BORJAK ZTR", 55, 35);
-
-  pdf.setFontSize(10);
-  pdf.text("Todorovića 7", 55, 45);
-  pdf.text("Kraljevo", 55, 52);
-  pdf.text("PIB: 104069152", 55, 59);
-
-  // Add title
-  pdf.setFontSize(14);
-  pdf.text(title, 20, 80);
-
-  // Add subtitle if provided
-  if (subtitle) {
-    pdf.setFontSize(10);
-    pdf.text(subtitle, 20, 90);
-  }
-
-  // Add generation date
-  pdf.setFontSize(8);
-  pdf.text(`Generated: ${new Date().toLocaleDateString("sr-RS")}`, 20, 100);
-
-  return 110; // Return Y position for content to start
-};
 
 type LifletZaglavlje = {
   id: number;
@@ -167,6 +109,26 @@ export default function LifletPage() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+
+  // Modal states for store selection
+  const [isStoreSelectionModalOpen, setIsStoreSelectionModalOpen] =
+    useState(false);
+  const [availableProdavnice, setAvailableProdavnice] = useState<
+    Array<{
+      ID_Prodavnica: number;
+      Naziv: string | null;
+      Sifra: string | null;
+    }>
+  >([]);
+  const [selectedProdavnice, setSelectedProdavnice] = useState<number[]>([]);
+  const [storeSearchTerm, setStoreSearchTerm] = useState("");
+  const [filteredProdavnice, setFilteredProdavnice] = useState<
+    Array<{
+      ID_Prodavnica: number;
+      Naziv: string | null;
+      Sifra: string | null;
+    }>
+  >([]);
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
@@ -564,17 +526,79 @@ export default function LifletPage() {
     }
   };
 
-  const stampajCeneZaRaf = async () => {
-    // SPECS: on A4 paper print 6cm wide and 3.5cm height price tag with approximately this data below
-    // - 1. column: article
-    // - 2. column: code
-    // - 3. column: client
-    // - 4. column: regular price
-    // - 5. column: promo price
-    // - 6. column: QR code code|+|barcode|+|client|+|regular price|+|promo price|
+  const loadProdavnice = async () => {
+    try {
+      const response = await fetch("/api/prodavnice");
+      const data = await response.json();
+      setAvailableProdavnice(data.data || []);
+      setFilteredProdavnice(data.data || []);
+    } catch (error) {
+      console.error("Error loading prodavnice:", error);
+      toast.error("Failed to load stores");
+    }
+  };
 
+  const openStoreSelectionModal = () => {
     if (!selectedLiflet) {
       toast.error("Please select a liflet first");
+      return;
+    }
+
+    // Filter data based on current filters
+    const filteredData = lifletDetalji.filter((detalj) => {
+      const matchesSearch =
+        !searchTerm ||
+        detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
+          searchTerm.toLowerCase()
+        ) ||
+        detalj.artikli?.BAR_CODE?.includes(searchTerm);
+
+      const matchesClient =
+        clientFilter === "all" || detalj.klijenti?.Naziv === clientFilter;
+
+      return matchesSearch && matchesClient;
+    });
+
+    if (filteredData.length === 0) {
+      toast.error("No items to add to stores");
+      return;
+    }
+
+    loadProdavnice();
+    setSelectedProdavnice([]);
+    setStoreSearchTerm("");
+    setIsStoreSelectionModalOpen(true);
+  };
+
+  const handleStoreSearch = (search: string) => {
+    setStoreSearchTerm(search);
+    const filtered = availableProdavnice.filter(
+      (prodavnica) =>
+        prodavnica.Naziv?.toLowerCase().includes(search.toLowerCase()) ||
+        prodavnica.Sifra?.toLowerCase().includes(search.toLowerCase())
+    );
+    setFilteredProdavnice(filtered);
+  };
+
+  const toggleProdavnicaSelection = (id: number) => {
+    setSelectedProdavnice((prev) =>
+      prev.includes(id)
+        ? prev.filter((storeId) => storeId !== id)
+        : [...prev, id]
+    );
+  };
+
+  const selectAllProdavnice = () => {
+    setSelectedProdavnice(filteredProdavnice.map((p) => p.ID_Prodavnica));
+  };
+
+  const deselectAllProdavnice = () => {
+    setSelectedProdavnice([]);
+  };
+
+  const submitToStores = async () => {
+    if (selectedProdavnice.length === 0) {
+      toast.error("Please select at least one store");
       return;
     }
 
@@ -594,215 +618,31 @@ export default function LifletPage() {
         return matchesSearch && matchesClient;
       });
 
-      if (filteredData.length === 0) {
-        toast.error("No data to print");
-        return;
+      const artikliData = filteredData.map((detalj) => ({
+        Id_artikal: detalj.Id_artikal,
+        cena_redovna: detalj.cena_redovna,
+        cena_akcija: detalj.cena_akcija,
+      }));
+
+      const response = await fetch("/api/cene_raf", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prodavnice_ids: selectedProdavnice,
+          artikli_data: artikliData,
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        toast.success(`Uspesno dodato ${result.count} cena u rafove`);
+        setIsStoreSelectionModalOpen(false);
+      } else {
+        toast.error("Greska pri dodavanju cena u rafove");
       }
-
-      // Generate QR codes for all items
-      const qrCodesPromises = filteredData.map(async (detalj) => {
-        const qrData = `${
-          detalj.artikli?.Id_Artikal || detalj.artikli?.DESCRIPTION || ""
-        }`;
-        try {
-          const qrCodeDataURL = await QRCode.toDataURL(qrData, {
-            width: 80,
-            margin: 1,
-            color: {
-              dark: "#000000",
-              light: "#FFFFFF",
-            },
-          });
-          return qrCodeDataURL;
-        } catch (error) {
-          console.error("Error generating QR code:", error);
-          return "";
-        }
-      });
-
-      const qrCodes = await Promise.all(qrCodesPromises);
-
-      // Serbian number formatting function for HTML
-      const formatSerbianNumberHTML = (value: number) => {
-        return new Intl.NumberFormat("sr-RS", {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        }).format(value);
-      };
-
-      // Create HTML content for price tags
-      // A4 dimensions in pixels at 300 DPI: 2480 x 3508
-      // Price tag: 6cm x 3.5cm = ~708px x ~413px at 300 DPI
-      // We'll fit 3 tags per row (with margins), so ~3.33 tags per row, let's do 3 per row
-      // 7 rows per page = 21 tags per page
-
-      let htmlContent = ``;
-
-      filteredData.forEach((detalj, index) => {
-        const qrCode = qrCodes[index];
-        const sifra = detalj.artikli?.Id_Artikal || "";
-        const articleName = detalj.artikli?.DESCRIPTION || "";
-        const barcode = detalj.artikli?.BAR_CODE || "";
-        const clientName = detalj.klijenti?.Naziv || "";
-        const regularPrice = detalj.cena_redovna
-          ? formatSerbianNumberHTML(Number(detalj.cena_redovna))
-          : "";
-        const promoPrice = detalj.cena_akcija
-          ? formatSerbianNumberHTML(Number(detalj.cena_akcija))
-          : "";
-
-        htmlContent += `
-          <div style="
-            width: 60mm; 
-            height: 35mm; 
-            border: 1px solid #000; 
-            background: white; 
-            box-sizing: border-box; 
-            padding: 2px; 
-            font-family: Arial, sans-serif;
-            display: flex;
-            flex-direction: column;
-            justify-content: space-between;
-          ">
-        
-            <!-- TOP: Product name and QR -->
-            <div style="display: flex; justify-content: space-between;">
-              
-              <!-- Product info -->
-              <div style="flex: 1; padding-right: 2mm;">
-                <div style="font-size: 10px; font-weight: bold; color: #000; margin-bottom: 1mm;">
-                  ${articleName}
-                </div>
-        
-                <!-- Optional product details row -->
-                <div style="font-size: 6.5px; line-height: 1.2;">
-                  <div><strong>${sifra}</strong> | ${barcode}</div>
-                </div>
-              </div>
-        
-              <!-- QR code -->
-              <div style="width: 15mm; display: flex; align-items: center; justify-content: flex-end;">
-                ${
-                  qrCode
-                    ? `<img src="${qrCode}" alt="QR" style="width: 14mm; height: 14mm;" />`
-                    : ""
-                }
-              </div>
-            </div>
-        
-            <!-- BOTTOM: Red promo section -->
-            <div style="
-              display: flex; 
-              justify-content: space-between; 
-              align-items: center; 
-              margin-top: 2mm;
-            ">
-              
-              <!-- Left text -->
-              <div style="font-size: 7px; color: #b00; font-weight: bold;">
-                Akcijaska cena<br>
-                <span style="font-size: 6px; color: #555; font-weight: normal;">
-                  Akcija važi do: 
-                </span>
-                <span style="font-size: 6px; color: #555; font-weight: normal;">
-                  ${
-                    selectedLiflet?.datum_do
-                      ? new Date(selectedLiflet.datum_do).toLocaleDateString(
-                          "sr-RS"
-                        )
-                      : ""
-                  }
-                </span>
-              </div>
-        
-              <!-- Right red price box -->
-              <div style="
-                background: #b00;
-                color: white;
-                padding: 3px;
-                border-radius: 2px;
-                text-align: right;
-                width: 60%;
-              ">
-                <div style="font-size: 24px; font-weight: bold;">
-                  ${promoPrice} <span style="font-size: 8px;">RSD  </span>
-                </div>
-              <div style="font-size: 10px; opacity: 0.8;">
-                  <span style="text-decoration: line-through; display: inline-block;">
-                    ${regularPrice}
-                  </span>
-                  <span style="font-size: 6px; display: inline-block;">
-                    RSD
-                  </span>
-                </div>
-              </div>
-        
-            </div>
-        
-          </div>
-        `;
-      });
-
-      // Create a temporary element to render
-      const tempDiv = document.createElement("div");
-      tempDiv.innerHTML = htmlContent;
-      tempDiv.style.position = "absolute";
-      tempDiv.style.left = "-9999px";
-      tempDiv.style.top = "-9999px";
-      tempDiv.style.width = "210mm";
-      tempDiv.style.background = "white";
-      document.body.appendChild(tempDiv);
-
-      // Use html2canvas to render the HTML
-      const canvas = await html2canvas(tempDiv, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: "#ffffff",
-        width: 794, // 210mm at 96 DPI
-        height: Math.max(1123, tempDiv.scrollHeight), // 297mm at 96 DPI, but adjust for content
-      });
-
-      // Remove temporary element
-      document.body.removeChild(tempDiv);
-
-      // Create PDF from canvas
-      const imgData = canvas.toDataURL("image/png");
-      const pdf = new jsPDF({
-        orientation: "portrait",
-        unit: "mm",
-        format: "a4",
-      });
-
-      const imgWidth = 210; // A4 width in mm
-      const pageHeight = 297; // A4 height in mm
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      let heightLeft = imgHeight;
-
-      let position = 0;
-
-      // Add first page
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
-
-      // Add additional pages if needed
-      while (heightLeft >= 0) {
-        position = heightLeft - imgHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-      }
-
-      // Save the PDF
-      const fileName = `cene_za_raf_${selectedLiflet.id}_${
-        new Date().toISOString().split("T")[0]
-      }.pdf`;
-      pdf.save(fileName);
-
-      toast.success(`Generisan PDF sa ${filteredData.length} artikala`);
     } catch (error) {
-      console.error("Error generating price tags PDF:", error);
-      toast.error("Failed to generate price tags PDF");
+      console.error("Error submitting to stores:", error);
+      toast.error("Greska pri dodavanju cena u rafove");
     }
   };
 
@@ -1603,11 +1443,11 @@ export default function LifletPage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={stampajCeneZaRaf}
+                    onClick={openStoreSelectionModal}
                     className="flex items-center gap-2"
                   >
                     <Download className="w-4 h-4" />
-                    Štampaj Cene
+                    Dodaj u Rafove
                   </Button>
                 </div>
 
@@ -1996,6 +1836,118 @@ export default function LifletPage() {
           <DialogFooter>
             <Button type="submit" onClick={handleEditDetail}>
               Ažuriraj Detalje
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Store Selection Modal */}
+      <Dialog
+        open={isStoreSelectionModalOpen}
+        onOpenChange={setIsStoreSelectionModalOpen}
+      >
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Dodaj Cene u Rafove</DialogTitle>
+            <DialogDescription>
+              Izaberite prodavnice u koje želite da dodate cene za artikle iz
+              ovog lifleta.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="store_search" className="text-right">
+                Pretraga prodavnica
+              </Label>
+              <div className="col-span-3">
+                <Input
+                  id="store_search"
+                  placeholder="Pretražite prodavnice..."
+                  value={storeSearchTerm}
+                  onChange={(e) => handleStoreSearch(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="items-center gap-4">
+              <div className="text-right">
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={selectAllProdavnice}
+                  >
+                    Izaberi sve
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={deselectAllProdavnice}
+                  >
+                    Poništi izbor
+                  </Button>
+                  <div className="text-sm text-muted-foreground ml-2 w-full text-right">
+                    Izabrano: {selectedProdavnice.length} prodavnica
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="max-h-60 overflow-y-auto border rounded-md">
+              {filteredProdavnice.length === 0 ? (
+                <div className="p-4 text-center text-muted-foreground">
+                  Nema prodavnica
+                </div>
+              ) : (
+                filteredProdavnice.map((prodavnica) => (
+                  <div
+                    key={prodavnica.ID_Prodavnica}
+                    className={`flex items-center p-3 hover:bg-accent cursor-pointer border-b last:border-b-0 ${
+                      selectedProdavnice.includes(prodavnica.ID_Prodavnica)
+                        ? "bg-accent"
+                        : ""
+                    }`}
+                    onClick={() =>
+                      toggleProdavnicaSelection(prodavnica.ID_Prodavnica)
+                    }
+                  >
+                    <input
+                      type="checkbox"
+                      checked={selectedProdavnice.includes(
+                        prodavnica.ID_Prodavnica
+                      )}
+                      onChange={() =>
+                        toggleProdavnicaSelection(prodavnica.ID_Prodavnica)
+                      }
+                      className="mr-3"
+                    />
+                    <div className="flex-1">
+                      <div className="font-medium">
+                        {prodavnica.Naziv || "Nepoznato ime"}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        Šifra: {prodavnica.ID_Prodavnica || "N/A"}
+                      </div>
+                    </div>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsStoreSelectionModalOpen(false)}
+            >
+              Odustani
+            </Button>
+            <Button
+              type="button"
+              onClick={submitToStores}
+              disabled={selectedProdavnice.length === 0}
+            >
+              Dodaj u Rafove ({selectedProdavnice.length})
             </Button>
           </DialogFooter>
         </DialogContent>
