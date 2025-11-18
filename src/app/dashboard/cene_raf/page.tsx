@@ -87,6 +87,7 @@ export default function CeneRafPage() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalRecords, setTotalRecords] = useState(0);
 
   // Printing configuration state
   const [printConfig, setPrintConfig] = useState<PrintConfig>({
@@ -100,6 +101,11 @@ export default function CeneRafPage() {
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingCeneRaf, setEditingCeneRaf] = useState<CeneRaf | null>(null);
+  const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
+  const [bulkDeleteProdavnica, setBulkDeleteProdavnica] = useState<{
+    ID_Prodavnica: number;
+    Naziv: string | null;
+  } | null>(null);
 
   // Form states
   const [formData, setFormData] = useState({
@@ -132,7 +138,12 @@ export default function CeneRafPage() {
 
   useEffect(() => {
     loadCeneRaf();
-  }, [sortConfig, currentPage, itemsPerPage]);
+  }, [sortConfig]);
+
+  // Reset to page 1 when filters or items per page change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, prodavnicaFilter, itemsPerPage]);
 
   useEffect(() => {
     loadAvailableProdavnice();
@@ -141,11 +152,13 @@ export default function CeneRafPage() {
   const loadCeneRaf = async () => {
     try {
       setLoading(true);
+      // Load all data for proper filtering and pagination
       const response = await fetch(
-        `/api/cene_raf?page=${currentPage}&limit=${itemsPerPage}&sort=${sortConfig.key}&order=${sortConfig.direction}`
+        `/api/cene_raf?sort=${sortConfig.key}&order=${sortConfig.direction}&limit=10000` // Large limit to get all data
       );
       const data = await response.json();
       setCeneRaf(data.data || []);
+      setTotalRecords(data.pagination?.total || 0);
     } catch (error) {
       console.error("Error loading cene_raf:", error);
       toast.error("Failed to load cene raf data");
@@ -235,6 +248,55 @@ export default function CeneRafPage() {
       console.error("Error deleting cene raf:", error);
       toast.error("Failed to delete cene raf record");
     }
+  };
+
+  const handleBulkDelete = async () => {
+    if (!bulkDeleteProdavnica) return;
+
+    try {
+      const response = await fetch(
+        `/api/cene_raf?prodavnica_id=${bulkDeleteProdavnica.ID_Prodavnica}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (response.ok) {
+        const data = await response.json();
+        toast.success(
+          `Uspešno obrisano ${data.deletedCount} zapisa za prodavnicu ${
+            bulkDeleteProdavnica.Naziv || bulkDeleteProdavnica.ID_Prodavnica
+          }`
+        );
+        setIsBulkDeleteModalOpen(false);
+        setBulkDeleteProdavnica(null);
+        loadCeneRaf();
+      } else {
+        toast.error("Greška pri brisanju zapisa");
+      }
+    } catch (error) {
+      console.error("Error bulk deleting cene raf:", error);
+      toast.error("Greška pri brisanju zapisa");
+    }
+  };
+
+  const openBulkDeleteModal = () => {
+    if (prodavnicaFilter === "all") {
+      toast.error("Izaberite prodavnicu za brisanje svih zapisa");
+      return;
+    }
+
+    const selectedProdavnica = availableProdavnice.find(
+      (p) => p.ID_Prodavnica.toString() === prodavnicaFilter
+    );
+
+    if (!selectedProdavnica) {
+      toast.error("Prodavnica nije pronađena");
+      return;
+    }
+
+    setBulkDeleteProdavnica(selectedProdavnica);
+    setIsBulkDeleteModalOpen(true);
   };
 
   const resetForm = () => {
@@ -390,155 +452,186 @@ export default function CeneRafPage() {
     return matchesSearch && matchesProdavnica;
   });
 
+  // Paginate the filtered data
+  const totalFilteredRecords = filteredData.length;
+  const maxPages = Math.ceil(totalFilteredRecords / itemsPerPage);
+
+  // Reset to first page if current page is beyond available pages
+  const effectiveCurrentPage =
+    currentPage > maxPages && maxPages > 0 ? 1 : currentPage;
+
+  const startIndex = (effectiveCurrentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const paginatedData = filteredData.slice(startIndex, endIndex);
+
   return (
     <div className="flex flex-col gap-6 w-full">
       <Card className="w-full">
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>Upravljanje Cenama Raf</CardTitle>
-          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Dodaj Cenu Raf
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Dodaj Novu Cenu Raf</DialogTitle>
-                <DialogDescription>
-                  Dodaj novi zapis o ceni na rafu.
-                </DialogDescription>
-              </DialogHeader>
-              <div className="grid gap-4 py-4">
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="article_search" className="text-right">
-                    Artikal
-                  </Label>
-                  <div className="col-span-3 relative">
-                    <Input
-                      id="article_search"
-                      placeholder="Pretražite artikle..."
-                      value={articleSearchTerm}
-                      onChange={(e) => {
-                        setArticleSearchTerm(e.target.value);
-                        searchArticles(e.target.value);
-                      }}
-                      className="w-full"
-                    />
-                    {showArticleDropdown && searchedArticles.length > 0 && (
-                      <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                        {searchedArticles.map((article) => (
-                          <div
-                            key={article.Id_Artikal}
-                            className="px-4 py-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
-                            onClick={() => selectArticle(article)}
-                          >
-                            <div className="font-medium">
-                              {article.DESCRIPTION}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              ID: {article.Id_Artikal} | Barkod:{" "}
-                              {article.BAR_CODE}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="prodavnica_search" className="text-right">
-                    Prodavnica
-                  </Label>
-                  <div className="col-span-3 relative">
-                    <Input
-                      id="prodavnica_search"
-                      placeholder="Pretražite prodavnice..."
-                      value={prodavnicaSearchTerm}
-                      onChange={(e) => {
-                        setProdavnicaSearchTerm(e.target.value);
-                        searchProdavnice(e.target.value);
-                      }}
-                      className="w-full"
-                    />
-                    {showProdavnicaDropdown &&
-                      searchedProdavnice.length > 0 && (
+          <div className="flex gap-2">
+            <Button
+              variant="destructive"
+              onClick={openBulkDeleteModal}
+              disabled={prodavnicaFilter === "all"}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Resetuj markice za prodavnicu
+            </Button>
+            <Dialog
+              open={isCreateModalOpen}
+              onOpenChange={setIsCreateModalOpen}
+            >
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Dodaj Cenu Raf
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Dodaj Novu Cenu Raf</DialogTitle>
+                  <DialogDescription>
+                    Dodaj novi zapis o ceni na rafu.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="article_search" className="text-right">
+                      Artikal
+                    </Label>
+                    <div className="col-span-3 relative">
+                      <Input
+                        id="article_search"
+                        placeholder="Pretražite artikle..."
+                        value={articleSearchTerm}
+                        onChange={(e) => {
+                          setArticleSearchTerm(e.target.value);
+                          searchArticles(e.target.value);
+                        }}
+                        className="w-full"
+                      />
+                      {showArticleDropdown && searchedArticles.length > 0 && (
                         <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                          {searchedProdavnice.map((prodavnica) => (
+                          {searchedArticles.map((article) => (
                             <div
-                              key={prodavnica.ID_Prodavnica}
-                              className="px-4 py-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
-                              onClick={() => selectProdavnica(prodavnica)}
+                              key={article.Id_Artikal}
+                              className="px-4 py-1 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
+                              onClick={() => selectArticle(article)}
                             >
                               <div className="font-medium">
-                                {`${prodavnica.ID_Prodavnica} ${
-                                  prodavnica.Naziv || ""
-                                }`.trim()}
+                                {article.DESCRIPTION}
                               </div>
                               <div className="text-sm text-muted-foreground">
-                                {prodavnica.Sifra &&
-                                  `Šifra: ${prodavnica.Sifra}`}
+                                ID: {article.Id_Artikal} | Barkod:{" "}
+                                {article.BAR_CODE}
                               </div>
                             </div>
                           ))}
                         </div>
                       )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="prodavnica_search" className="text-right">
+                      Prodavnica
+                    </Label>
+                    <div className="col-span-3 relative">
+                      <Input
+                        id="prodavnica_search"
+                        placeholder="Pretražite prodavnice..."
+                        value={prodavnicaSearchTerm}
+                        onChange={(e) => {
+                          setProdavnicaSearchTerm(e.target.value);
+                          searchProdavnice(e.target.value);
+                        }}
+                        className="w-full"
+                      />
+                      {showProdavnicaDropdown &&
+                        searchedProdavnice.length > 0 && (
+                          <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                            {searchedProdavnice.map((prodavnica) => (
+                              <div
+                                key={prodavnica.ID_Prodavnica}
+                                className="px-4 py-1 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
+                                onClick={() => selectProdavnica(prodavnica)}
+                              >
+                                <div className="font-medium">
+                                  {`${prodavnica.ID_Prodavnica} ${
+                                    prodavnica.Naziv || ""
+                                  }`.trim()}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  {prodavnica.Sifra &&
+                                    `Šifra: ${prodavnica.Sifra}`}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="cena_redovna" className="text-right">
+                      Redovna cena
+                    </Label>
+                    <Input
+                      id="cena_redovna"
+                      type="number"
+                      step="0.01"
+                      value={formData.cena_redovna}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          cena_redovna: e.target.value,
+                        })
+                      }
+                      className="col-span-3"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="cena_akcija" className="text-right">
+                      Akcijska cena
+                    </Label>
+                    <Input
+                      id="cena_akcija"
+                      type="number"
+                      step="0.01"
+                      value={formData.cena_akcija}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          cena_akcija: e.target.value,
+                        })
+                      }
+                      className="col-span-3"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="napomena" className="text-right">
+                      Napomena
+                    </Label>
+                    <Input
+                      id="napomena"
+                      value={formData.napomena}
+                      onChange={(e) =>
+                        setFormData({ ...formData, napomena: e.target.value })
+                      }
+                      className="col-span-3"
+                      placeholder="Opciono: Unesite napomenu"
+                    />
                   </div>
                 </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="cena_redovna" className="text-right">
-                    Redovna cena
-                  </Label>
-                  <Input
-                    id="cena_redovna"
-                    type="number"
-                    step="0.01"
-                    value={formData.cena_redovna}
-                    onChange={(e) =>
-                      setFormData({ ...formData, cena_redovna: e.target.value })
-                    }
-                    className="col-span-3"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="cena_akcija" className="text-right">
-                    Akcijska cena
-                  </Label>
-                  <Input
-                    id="cena_akcija"
-                    type="number"
-                    step="0.01"
-                    value={formData.cena_akcija}
-                    onChange={(e) =>
-                      setFormData({ ...formData, cena_akcija: e.target.value })
-                    }
-                    className="col-span-3"
-                    placeholder="0.00"
-                  />
-                </div>
-                <div className="grid grid-cols-4 items-center gap-4">
-                  <Label htmlFor="napomena" className="text-right">
-                    Napomena
-                  </Label>
-                  <Input
-                    id="napomena"
-                    value={formData.napomena}
-                    onChange={(e) =>
-                      setFormData({ ...formData, napomena: e.target.value })
-                    }
-                    className="col-span-3"
-                    placeholder="Opciono: Unesite napomenu"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button type="submit" onClick={handleCreate}>
-                  Dodaj Cenu Raf
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+                <DialogFooter>
+                  <Button type="submit" onClick={handleCreate}>
+                    Dodaj Cenu Raf
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="flex items-center space-x-2 mb-4">
@@ -592,7 +685,7 @@ export default function CeneRafPage() {
               <thead>
                 <tr className="bg-muted/50">
                   <th
-                    className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted"
+                    className="border border-border px-2 py-1 text-left cursor-pointer hover:bg-muted"
                     onClick={() => handleSort("id")}
                   >
                     <div className="flex items-center space-x-1">
@@ -600,22 +693,22 @@ export default function CeneRafPage() {
                       {getSortIcon("id")}
                     </div>
                   </th>
-                  <th className="border border-border px-4 py-2 text-left">
+                  <th className="border border-border px-4 py-1 text-left">
                     Artikal
                   </th>
-                  <th className="border border-border px-4 py-2 text-left">
+                  <th className="border border-border px-4 py-1 text-left">
                     Naziv Artikla
                   </th>
-                  <th className="border border-border px-4 py-2 text-left">
+                  <th className="border border-border px-4 py-1 text-left">
                     Prodavnica
                   </th>
-                  <th className="border border-border px-4 py-2 text-left">
+                  <th className="border border-border px-4 py-1 text-left">
                     Redovna cena
                   </th>
-                  <th className="border border-border px-4 py-2 text-left">
+                  <th className="border border-border px-4 py-1 text-left">
                     Akcijska cena
                   </th>
-                  <th className="border border-border px-4 py-2 text-left">
+                  <th className="border border-border px-4 py-1 text-left">
                     Akcije
                   </th>
                 </tr>
@@ -640,12 +733,12 @@ export default function CeneRafPage() {
                     </td>
                   </tr>
                 ) : (
-                  filteredData.map((item) => (
+                  paginatedData.map((item) => (
                     <tr key={item.id} className="hover:bg-muted">
-                      <td className="border border-border px-4 py-2">
+                      <td className="border border-border px-4 py-0">
                         {item.id}
                       </td>
-                      <td className="border border-border px-4 py-2">
+                      <td className="border border-border px-4 py-0">
                         <div>
                           <div className="font-medium">{item.id_artikal}</div>
                           {item.artikli?.BAR_CODE && (
@@ -655,10 +748,10 @@ export default function CeneRafPage() {
                           )}
                         </div>
                       </td>
-                      <td className="border border-border px-4 py-2">
+                      <td className="border border-border px-4 py-0">
                         {item.artikli?.DESCRIPTION}
                       </td>
-                      <td className="border border-border px-4 py-2">
+                      <td className="border border-border px-4 py-0">
                         <div>
                           <div className="font-medium">
                             {item.prodavnice?.Naziv ||
@@ -671,17 +764,17 @@ export default function CeneRafPage() {
                           )}
                         </div>
                       </td>
-                      <td className="border border-border px-4 py-2 text-right">
+                      <td className="border border-border px-4 py-0 text-right">
                         {item.cena_redovna
                           ? `${Number(item.cena_redovna).toFixed(2)}`
                           : "0.00"}
                       </td>
-                      <td className="border border-border px-4 py-2 text-right">
+                      <td className="border border-border px-4 py-0 text-right">
                         {item.cena_akcija
                           ? `${Number(item.cena_akcija).toFixed(2)}`
                           : "0.00"}
                       </td>
-                      <td className="border border-border px-4 py-2">
+                      <td className="border border-border px-4 py-0">
                         <div className="flex space-x-2">
                           <Button
                             variant="outline"
@@ -728,22 +821,29 @@ export default function CeneRafPage() {
           {/* Pagination */}
           <div className="flex justify-between items-center mt-4">
             <div className="text-sm text-muted-foreground">
-              Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-              {Math.min(currentPage * itemsPerPage, ceneRaf.length)} od{" "}
-              {ceneRaf.length} zapisa
+              Prikazano {(effectiveCurrentPage - 1) * itemsPerPage + 1} do{" "}
+              {Math.min(
+                effectiveCurrentPage * itemsPerPage,
+                totalFilteredRecords
+              )}{" "}
+              od {totalFilteredRecords} zapisa{" "}
+              {totalFilteredRecords !== totalRecords &&
+                `(od ukupno ${totalRecords})`}
             </div>
             <div className="flex space-x-2">
               <Button
                 variant="outline"
                 onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={currentPage === 1}
+                disabled={effectiveCurrentPage === 1}
               >
                 Prethodna
               </Button>
               <Button
                 variant="outline"
                 onClick={() => setCurrentPage((prev) => prev + 1)}
-                disabled={currentPage * itemsPerPage >= ceneRaf.length}
+                disabled={
+                  effectiveCurrentPage * itemsPerPage >= totalFilteredRecords
+                }
               >
                 Sledeća
               </Button>
@@ -962,6 +1062,37 @@ export default function CeneRafPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Bulk Delete Modal */}
+      <AlertDialog
+        open={isBulkDeleteModalOpen}
+        onOpenChange={setIsBulkDeleteModalOpen}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Obriši sve zapise za prodavnicu</AlertDialogTitle>
+            <AlertDialogDescription>
+              Da li ste sigurni da želite da obrišete sve zapise o cenama raf za
+              prodavnicu{" "}
+              <strong>
+                {bulkDeleteProdavnica?.Naziv ||
+                  `Prodavnica ${bulkDeleteProdavnica?.ID_Prodavnica}`}
+              </strong>
+              ?<br />
+              Ova akcija ne može biti poništena.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Odustani</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleBulkDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Obriši sve
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

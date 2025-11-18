@@ -53,19 +53,12 @@ export async function GET(request: NextRequest) {
     );
 
     // Get prodavnice data separately since it's ignored in Prisma schema
-    const prodavniceIds = ceneRafData
-      .map((item) => item.id_prodavnica)
-      .filter(Boolean);
-    let prodavniceData: Array<{ ID_Prodavnica: number; Naziv: string | null }> =
-      [];
-
-    if (prodavniceIds.length > 0) {
-      prodavniceData = (await prisma.$queryRaw`
-        SELECT ID_Prodavnica, Naziv
-        FROM prodavnice
-        WHERE ID_Prodavnica IN (${prodavniceIds.join(",")})
-      `) as Array<{ ID_Prodavnica: number; Naziv: string | null }>;
-    }
+    // Load ALL prodavnice data to ensure filtering works correctly on frontend
+    const prodavniceData = (await prisma.$queryRaw`
+      SELECT ID_Prodavnica, Naziv
+      FROM prodavnice
+      ORDER BY ID_Prodavnica
+    `) as Array<{ ID_Prodavnica: number; Naziv: string | null }>;
 
     // Create a map for quick lookup
     const prodavniceMap = new Map(
@@ -214,6 +207,50 @@ export async function POST(request: NextRequest) {
     console.error("Error creating cene_raf:", error);
     return NextResponse.json(
       { error: "Failed to create cene_raf record" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const prodavnicaId = searchParams.get("prodavnica_id");
+
+    if (!prodavnicaId) {
+      return NextResponse.json(
+        { error: "prodavnica_id parameter is required" },
+        { status: 400 }
+      );
+    }
+
+    const id = parseInt(prodavnicaId);
+    if (isNaN(id)) {
+      return NextResponse.json(
+        { error: "Invalid prodavnica_id parameter" },
+        { status: 400 }
+      );
+    }
+
+    // Get count of records before deletion for confirmation
+    const countBefore = await prisma.cene_raf.count({
+      where: { id_prodavnica: id },
+    });
+
+    // Delete all records for the specified prodavnica
+    const result = await prisma.cene_raf.deleteMany({
+      where: { id_prodavnica: id },
+    });
+
+    return NextResponse.json({
+      success: true,
+      deletedCount: result.count,
+      message: `Successfully deleted ${result.count} records for prodavnica ${id}`,
+    });
+  } catch (error) {
+    console.error("Error deleting cene_raf records:", error);
+    return NextResponse.json(
+      { error: "Failed to delete cene_raf records" },
       { status: 500 }
     );
   }

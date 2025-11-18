@@ -94,7 +94,7 @@ export const format5x3 = (item: PrintItem, qrCode?: string): string => {
       <div style="font-size: 8px; font-weight: bold; color: #000; margin-bottom: 1mm;">
         ${articleName}
       </div>
-      <div style="font-size: 6px; line-height: 1.1;">
+      <div style="font-size: 6px; line-height: 1.1;color: #000; ">
         <div><strong>${sifra}</strong> | ${barcode}</div>
         <div>Klijent: ${clientName}</div>
       </div>
@@ -105,7 +105,7 @@ export const format5x3 = (item: PrintItem, qrCode?: string): string => {
         border-radius: 2px;
         text-align: center;
       ">
-        <div style="font-size: 14px; font-weight: bold;">
+        <div style="font-size: 14px; font-weight: bold;color: #000; ">
           ${formatSerbianNumberHTML(
             price
           )} <span style="font-size: 6px;">RSD</span>
@@ -157,16 +157,16 @@ export const format6x4 = (
       </div>
 
       <!-- Sifra + Barcode -->
-      <div style="font-size: 12px;">
+      <div style="font-size: 12px;color: #000; ">
         <div><strong>${sifra}</strong> | ${barcode}</div>
       </div>
     
-  <div style="margin-top: 1px; font-size: 9px;">
+  <div style="margin-top: 1px; font-size: 9px; color: #000; ">
               JM:
               <span>KOM</span>              
             </div>
 
-              <div style="margin-top: 1px; font-size: 9px;">
+              <div style="margin-top: 1px; font-size: 9px;color: #000; ">
               Jedinična cena:
               <span>1.234,56 rsd/kg</span>              
             </div>     

@@ -109,6 +109,7 @@ export default function LifletPage() {
   });
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
+  const [totalRecords, setTotalRecords] = useState(0);
 
   // Modal states for store selection
   const [isStoreSelectionModalOpen, setIsStoreSelectionModalOpen] =
@@ -163,7 +164,12 @@ export default function LifletPage() {
 
   useEffect(() => {
     loadLifletZaglavlje();
-  }, [sortConfig, currentPage, itemsPerPage]);
+  }, [sortConfig]);
+
+  // Reset to page 1 when items per page changes
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [itemsPerPage]);
 
   useEffect(() => {
     if (selectedLiflet) {
@@ -174,11 +180,13 @@ export default function LifletPage() {
   const loadLifletZaglavlje = async () => {
     try {
       setLoading(true);
+      // Load all data for proper pagination
       const response = await fetch(
-        `/api/liflet/zaglavlje?page=${currentPage}&limit=${itemsPerPage}&sort=${sortConfig.key}&order=${sortConfig.direction}`
+        `/api/liflet/zaglavlje?sort=${sortConfig.key}&order=${sortConfig.direction}&limit=10000`
       );
       const data = await response.json();
       setLifletZaglavlje(data.data || []);
+      setTotalRecords(data.pagination?.total || 0);
     } catch (error) {
       console.error("Error loading liflet zaglavlje:", error);
       toast.error("Failed to load liflet data");
@@ -904,672 +912,203 @@ export default function LifletPage() {
 
   return (
     <div className="flex flex-col gap-6 w-full">
-      {/* Left Side - Liflet Zaglavlje */}
-      <div className="flex-1 w-full">
-        <Card className="w-full h-full">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Upravljanje Lifletima</CardTitle>
-            <Dialog
-              open={isCreateModalOpen}
-              onOpenChange={setIsCreateModalOpen}
-            >
-              <DialogTrigger asChild>
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
+      {/* Liflet Zaglavlje - Full Width */}
+      <Card className="w-full">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>Upravljanje Lifletima</CardTitle>
+          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Kreiraj Liflet
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Kreiraj Novi Liflet</DialogTitle>
+                <DialogDescription>
+                  Dodaj novi prometni list sa datumskim opsegom i informacijama
+                  o klijentu.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="grid gap-4 py-4">
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="datum_od" className="text-right">
+                    Datum početka
+                  </Label>
+                  <Input
+                    id="datum_od"
+                    type="date"
+                    value={formData.datum_od}
+                    onChange={(e) =>
+                      setFormData({ ...formData, datum_od: e.target.value })
+                    }
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="datum_do" className="text-right">
+                    Datum završetka
+                  </Label>
+                  <Input
+                    id="datum_do"
+                    type="date"
+                    value={formatSerbianDate(formData.datum_do)}
+                    onChange={(e) =>
+                      setFormData({ ...formData, datum_do: e.target.value })
+                    }
+                    className="col-span-3"
+                  />
+                </div>
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="op_id" className="text-right">
+                    ID operatora
+                  </Label>
+                  <Input
+                    id="op_id"
+                    type="number"
+                    value={formData.op_id}
+                    onChange={(e) =>
+                      setFormData({ ...formData, op_id: e.target.value })
+                    }
+                    className="col-span-3"
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button type="submit" onClick={handleCreate}>
                   Kreiraj Liflet
                 </Button>
-              </DialogTrigger>
-              <DialogContent>
-                <DialogHeader>
-                  <DialogTitle>Kreiraj Novi Liflet</DialogTitle>
-                  <DialogDescription>
-                    Dodaj novi prometni list sa datumskim opsegom i
-                    informacijama o klijentu.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="datum_od" className="text-right">
-                      Datum početka
-                    </Label>
-                    <Input
-                      id="datum_od"
-                      type="date"
-                      value={formData.datum_od}
-                      onChange={(e) =>
-                        setFormData({ ...formData, datum_od: e.target.value })
-                      }
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="datum_do" className="text-right">
-                      Datum završetka
-                    </Label>
-                    <Input
-                      id="datum_do"
-                      type="date"
-                      value={formatSerbianDate(formData.datum_do)}
-                      onChange={(e) =>
-                        setFormData({ ...formData, datum_do: e.target.value })
-                      }
-                      className="col-span-3"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="op_id" className="text-right">
-                      ID operatora
-                    </Label>
-                    <Input
-                      id="op_id"
-                      type="number"
-                      value={formData.op_id}
-                      onChange={(e) =>
-                        setFormData({ ...formData, op_id: e.target.value })
-                      }
-                      className="col-span-3"
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="submit" onClick={handleCreate}>
-                    Kreiraj Liflet
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-2 mb-4">
-              <Select
-                value={itemsPerPage.toString()}
-                onValueChange={(value) => setItemsPerPage(Number(value))}
-              >
-                <SelectTrigger className="w-[100px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="5">5 po stranici</SelectItem>
-                  <SelectItem value="10">10 po stranici</SelectItem>
-                  <SelectItem value="20">20 po stranici</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center space-x-2 mb-4">
+            <Select
+              value={itemsPerPage.toString()}
+              onValueChange={(value) => setItemsPerPage(Number(value))}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5 po stranici</SelectItem>
+                <SelectItem value="10">10 po stranici</SelectItem>
+                <SelectItem value="20">20 po stranici</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div className="overflow-x-auto w-full">
-              <table className="w-full border-collapse border border-border">
-                <thead>
-                  <tr className="bg-muted/50">
-                    <th
-                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-20"
-                      onClick={() => handleSort("id")}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>ID</span>
-                        {getSortIcon("id")}
-                      </div>
-                    </th>
-                    <th
-                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-48"
-                      onClick={() => handleSort("datum_od")}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>Datum početka</span>
-                        {getSortIcon("datum_od")}
-                      </div>
-                    </th>
-                    <th
-                      className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-48"
-                      onClick={() => handleSort("datum_do")}
-                    >
-                      <div className="flex items-center space-x-1">
-                        <span>Datum završetka</span>
-                        {getSortIcon("datum_do")}
-                      </div>
-                    </th>
-                    <th className="border border-border px-4 py-2 text-left w-48">
-                      Akcije
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {loading ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="border border-border px-4 py-8 text-center"
-                      >
-                        Učitavanje...
-                      </td>
-                    </tr>
-                  ) : lifletZaglavlje.length === 0 ? (
-                    <tr>
-                      <td
-                        colSpan={4}
-                        className="border border-border px-4 py-8 text-center"
-                      >
-                        Nije pronađen nijedan liflet
-                      </td>
-                    </tr>
-                  ) : (
-                    lifletZaglavlje.map((liflet) => (
-                      <tr
-                        key={liflet.id}
-                        className={`cursor-pointer hover:bg-muted ${
-                          selectedLiflet?.id === liflet.id
-                            ? "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                            : ""
-                        }`}
-                        onClick={() => {
-                          setSelectedLiflet(liflet);
-                          setClientFilter("all");
-                          setSearchTerm("");
-                        }}
-                      >
-                        <td className="border border-border px-4 py-2 w-20">
-                          {liflet.id}
-                        </td>
-                        <td className="border border-border px-4 py-2 w-32">
-                          {new Date(liflet.datum_od).toLocaleDateString()}
-                        </td>
-                        <td className="border border-border px-4 py-2 w-32">
-                          {new Date(liflet.datum_do).toLocaleDateString()}
-                        </td>
-                        <td className="border border-border px-4 py-2 w-32">
-                          <div className="flex space-x-2">
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                openEditModal(liflet);
-                              }}
-                            >
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={(e) => e.stopPropagation()}
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Da li ste sigurni?
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Ova akcija ne može biti poništena. Ovo će
-                                    trajno obrisati liflet i sve njegove
-                                    povezane detalje.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>
-                                    Odustani
-                                  </AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(liflet.id)}
-                                  >
-                                    Obriši
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
+          {/* Paginate the liflet data */}
+          {(() => {
+            const maxPages = Math.ceil(lifletZaglavlje.length / itemsPerPage);
+            const effectiveCurrentPage =
+              currentPage > maxPages && maxPages > 0 ? 1 : currentPage;
+            const startIndex = (effectiveCurrentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedData = lifletZaglavlje.slice(startIndex, endIndex);
 
-            {/* Pagination */}
-            <div className="flex justify-between items-center mt-4">
-              <div className="text-sm text-muted-foreground">
-                Showing {(currentPage - 1) * itemsPerPage + 1} to{" "}
-                {Math.min(currentPage * itemsPerPage, lifletZaglavlje.length)}{" "}
-                od {lifletZaglavlje.length} zapisa
-              </div>
-              <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    setCurrentPage((prev) => Math.max(prev - 1, 1))
-                  }
-                  disabled={currentPage === 1}
-                >
-                  Prethodna
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage((prev) => prev + 1)}
-                  disabled={
-                    currentPage * itemsPerPage >= lifletZaglavlje.length
-                  }
-                >
-                  Sledeća
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Right Side - Liflet Detalji */}
-      <div className="flex-1 w-full">
-        <Card className="w-full h-full">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>
-              {selectedLiflet
-                ? `Detalji Lifleta - ID: ${selectedLiflet.id}`
-                : "Izaberite Liflet"}
-            </CardTitle>
-            {selectedLiflet && (
-              <Dialog
-                open={isCreateDetailModalOpen}
-                onOpenChange={setIsCreateDetailModalOpen}
-              >
-                <DialogTrigger asChild>
-                  <Button size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Dodaj Artikal
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="max-w-2xl">
-                  <DialogHeader>
-                    <DialogTitle>Dodaj Artikal na Liflet</DialogTitle>
-                    <DialogDescription>
-                      Pretražite i izaberite artikal za dodavanje na ovaj
-                      liflet.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="article_search" className="text-right">
-                        Artikal
-                      </Label>
-                      <div className="col-span-3 relative">
-                        <Input
-                          id="article_search"
-                          placeholder="Type to search articles..."
-                          value={articleSearchTerm}
-                          onChange={(e) => {
-                            setArticleSearchTerm(e.target.value);
-                            searchArticles(e.target.value);
-                          }}
-                          className="w-full"
-                        />
-                        {showArticleDropdown && searchedArticles.length > 0 && (
-                          <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                            {searchedArticles.map((article) => (
-                              <div
-                                key={article.Id_Artikal}
-                                className="px-4 py-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0 flex items-center gap-3"
-                                onClick={() => selectArticle(article)}
-                              >
-                                <div className="flex-shrink-0">
-                                  {article.hasImage && article.image ? (
-                                    <img
-                                      src={`/images/${article.image}`}
-                                      alt={article.DESCRIPTION || "Article"}
-                                      className="w-16 h-12 object-contain rounded border"
-                                    />
-                                  ) : (
-                                    <div className="w-16 h-12 bg-muted rounded border flex items-center justify-center">
-                                      <ImageIcon className="w-5 h-5 text-muted-foreground" />
-                                    </div>
-                                  )}
-                                </div>
-                                <div className="flex-1 min-w-0">
-                                  <div className="font-medium truncate">
-                                    {article.DESCRIPTION}
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    Barkod: {article.BAR_CODE}
-                                  </div>
-                                  {article.PRICE && (
-                                    <div className="text-sm text-muted-foreground">
-                                      Cena: {article.PRICE}
-                                    </div>
-                                  )}
-                                  {article.hasImage && (
-                                    <div className="text-xs text-green-600 font-medium mt-1">
-                                      ✓ Ima sliku
-                                    </div>
-                                  )}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="client_search" className="text-right">
-                        Klijent
-                      </Label>
-                      <div className="col-span-3 relative">
-                        <Input
-                          id="client_search"
-                          placeholder="Pretražite klijente..."
-                          value={clientSearchTerm}
-                          onChange={(e) => {
-                            setClientSearchTerm(e.target.value);
-                            searchClients(e.target.value);
-                          }}
-                          className="w-full"
-                        />
-                        {showClientDropdown && searchedClients.length > 0 && (
-                          <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                            {searchedClients.map((client) => (
-                              <div
-                                key={client.ID_Klijent}
-                                className="px-4 py-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
-                                onClick={() => selectClient(client)}
-                              >
-                                <div className="font-medium">
-                                  {client.Naziv}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  PIB: {client.PIB}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="cena_redovna" className="text-right">
-                        Regularna cena
-                      </Label>
-                      <Input
-                        id="cena_redovna"
-                        type="number"
-                        step="0.01"
-                        value={detailFormData.cena_redovna}
-                        onChange={(e) =>
-                          setDetailFormData({
-                            ...detailFormData,
-                            cena_redovna: e.target.value,
-                          })
-                        }
-                        className="col-span-3"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-center gap-4">
-                      <Label htmlFor="cena_akcija" className="text-right">
-                        Akcijska cena
-                      </Label>
-                      <Input
-                        id="cena_akcija"
-                        type="number"
-                        step="0.01"
-                        value={detailFormData.cena_akcija}
-                        onChange={(e) =>
-                          setDetailFormData({
-                            ...detailFormData,
-                            cena_akcija: e.target.value,
-                          })
-                        }
-                        className="col-span-3"
-                        placeholder="0.00"
-                      />
-                    </div>
-                    <div className="grid grid-cols-4 items-start gap-4">
-                      <Label className="text-right pt-2">Slika</Label>
-                      <div className="col-span-3">
-                        <div
-                          className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                          onDrop={handleImageDrop}
-                          onDragOver={handleImageDragOver}
-                          onClick={() =>
-                            document.getElementById("image-input")?.click()
-                          }
-                        >
-                          {detailFormData.imagePreview ? (
-                            <div className="relative">
-                              <img
-                                src={detailFormData.imagePreview}
-                                alt="Preview"
-                                className="max-w-full max-h-32 mx-auto rounded"
-                              />
-                              <Button
-                                type="button"
-                                variant="destructive"
-                                size="sm"
-                                className="absolute top-2 right-2"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  removeImage();
-                                }}
-                              >
-                                <X className="w-4 h-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <div>
-                              <ImageIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                              <p className="text-sm text-muted-foreground mb-1">
-                                Prevucite i spustite sliku ovde, ili kliknite da
-                                odaberete
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Slika će biti sačuvana kao{" "}
-                                {detailFormData.Id_artikal || "ID_artikal"}.
-                                {detailFormData.image?.name.split(".").pop() ||
-                                  "ekstenzija"}
-                              </p>
-                            </div>
-                          )}
-                        </div>
-                        <input
-                          id="image-input"
-                          type="file"
-                          accept="image/*"
-                          className="hidden"
-                          onChange={(e) => {
-                            const file = e.target.files?.[0];
-                            if (file) {
-                              handleImageSelect(file);
-                            }
-                          }}
-                        />
-                        <p className="text-xs text-muted-foreground mt-2">
-                          Opciono: Pošaljite sliku za ovaj artikal
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button
-                      type="submit"
-                      onClick={handleCreateDetail}
-                      disabled={
-                        !detailFormData.selectedArticle ||
-                        !detailFormData.selectedClient
-                      }
-                    >
-                      Dodaj Artikal
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
-            )}
-          </CardHeader>
-          <CardContent>
-            {selectedLiflet ? (
-              <div>
-                <div className="mb-4 flex items-center gap-2">
-                  <div className="flex items-center gap-2 flex-1">
-                    <Search className="w-4 h-4" />
-                    <Input
-                      placeholder="Pretražite artikle..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="flex-1 max-w-xs"
-                    />
-                  </div>
-                  <Select value={clientFilter} onValueChange={setClientFilter}>
-                    <SelectTrigger className="w-48">
-                      <SelectValue placeholder="Filtriraj po klijentu" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">Svi Klijenti</SelectItem>
-                      {Array.from(
-                        new Set(
-                          lifletDetalji
-                            .filter((item) => item.klijenti?.Naziv)
-                            .map((item) => item.klijenti!.Naziv!)
-                        )
-                      )
-                        .sort()
-                        .map((clientName) => (
-                          <SelectItem key={clientName} value={clientName}>
-                            {clientName}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={exportToPDF}
-                    className="flex items-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Izvezi PDF
-                  </Button>
-
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={openStoreSelectionModal}
-                    className="flex items-center gap-2"
-                  >
-                    <Download className="w-4 h-4" />
-                    Dodaj u Rafove
-                  </Button>
-                </div>
-
+            return (
+              <>
                 <div className="overflow-x-auto w-full">
                   <table className="w-full border-collapse border border-border">
                     <thead>
                       <tr className="bg-muted/50">
-                        <th className="border border-border px-2 py-2 text-left w-64">
-                          Artikal
+                        <th
+                          className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-20"
+                          onClick={() => handleSort("id")}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>ID</span>
+                            {getSortIcon("id")}
+                          </div>
                         </th>
-                        <th className="border border-border px-2 py-2 text-left w-48">
-                          Klijent
+                        <th
+                          className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-48"
+                          onClick={() => handleSort("datum_od")}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Datum početka</span>
+                            {getSortIcon("datum_od")}
+                          </div>
                         </th>
-                        <th className="border border-border px-4 py-2 text-left w-24">
-                          Regularna cena
+                        <th
+                          className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted w-48"
+                          onClick={() => handleSort("datum_do")}
+                        >
+                          <div className="flex items-center space-x-1">
+                            <span>Datum završetka</span>
+                            {getSortIcon("datum_do")}
+                          </div>
                         </th>
-                        <th className="border border-border px-4 py-2 text-left w-24">
-                          Akcijska cena
-                        </th>
-                        <th className="border border-border px-2 py-2 text-left w-20">
-                          Slika
-                        </th>
-                        <th className="border border-border px-2 py-2 text-left w-32">
+                        <th className="border border-border px-4 py-2 text-left w-48">
                           Akcije
                         </th>
                       </tr>
                     </thead>
                     <tbody>
-                      {lifletDetalji
-                        .filter((detalj) => {
-                          // Filter po tekstu
-                          const matchesSearch =
-                            !searchTerm ||
-                            detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
-                              searchTerm.toLowerCase()
-                            ) ||
-                            detalj.artikli?.BAR_CODE?.includes(searchTerm);
-
-                          // Filter po klijentu
-                          const matchesClient =
-                            clientFilter === "all" ||
-                            detalj.klijenti?.Naziv === clientFilter;
-
-                          return matchesSearch && matchesClient;
-                        })
-                        .map((detalj) => (
-                          <tr key={detalj.id} className="hover:bg-muted">
-                            <td className="border border-border px-2 py-2 w-64">
-                              <div>
-                                <div className="font-medium">
-                                  {detalj.artikli?.DESCRIPTION}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  {detalj.artikli?.Id_Artikal}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  {detalj.artikli?.BAR_CODE}
-                                </div>
-                              </div>
+                      {loading ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="border border-border px-4 py-8 text-center"
+                          >
+                            Učitavanje...
+                          </td>
+                        </tr>
+                      ) : paginatedData.length === 0 ? (
+                        <tr>
+                          <td
+                            colSpan={4}
+                            className="border border-border px-4 py-8 text-center"
+                          >
+                            Nije pronađen nijedan liflet
+                          </td>
+                        </tr>
+                      ) : (
+                        paginatedData.map((liflet) => (
+                          <tr
+                            key={liflet.id}
+                            className={`cursor-pointer hover:bg-muted ${
+                              selectedLiflet?.id === liflet.id
+                                ? "hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                                : ""
+                            }`}
+                            onClick={() => {
+                              setSelectedLiflet(liflet);
+                              setClientFilter("all");
+                              setSearchTerm("");
+                            }}
+                          >
+                            <td className="border border-border px-4 py-2 w-20">
+                              {liflet.id}
                             </td>
-                            <td className="border border-border px-2 py-2 w-48">
-                              <div>
-                                <div className="font-medium">
-                                  {detalj.klijenti?.Naziv}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  PIB: {detalj.klijenti?.PIB}
-                                </div>
-                              </div>
+                            <td className="border border-border px-4 py-2 w-32">
+                              {new Date(liflet.datum_od).toLocaleDateString()}
                             </td>
-                            <td className="border border-border px-2 py-2 w-24">
-                              {detalj.cena_redovna
-                                ? `${Number(detalj.cena_redovna).toFixed(2)}`
-                                : "-"}
+                            <td className="border border-border px-4 py-2 w-32">
+                              {new Date(liflet.datum_do).toLocaleDateString()}
                             </td>
-                            <td className="border border-border px-2 py-2 w-24">
-                              {detalj.cena_akcija
-                                ? `${Number(detalj.cena_akcija).toFixed(2)}`
-                                : "-"}
-                            </td>
-                            <td className="border border-border px-2 py-2 w-20 justify-center items-center">
-                              {detalj.image ? (
-                                <img
-                                  src={`/images/${detalj.image}`}
-                                  alt={
-                                    detalj.artikli?.DESCRIPTION ||
-                                    "Article image"
-                                  }
-                                  className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 object-contain rounded cursor-pointer hover:opacity-80 mx-auto"
-                                  onClick={() =>
-                                    window.open(
-                                      `/images/${detalj.image}`,
-                                      "_blank"
-                                    )
-                                  }
-                                />
-                              ) : (
-                                <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 bg-muted rounded flex items-center justify-center">
-                                  <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-muted-foreground" />
-                                </div>
-                              )}
-                            </td>
-                            <td className="border border-border px-2 py-2">
-                              <div className="flex space-x-1">
+                            <td className="border border-border px-4 py-2 w-32">
+                              <div className="flex space-x-2">
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => openEditDetailModal(detalj)}
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    openEditModal(liflet);
+                                  }}
                                 >
                                   <Edit className="w-4 h-4" />
                                 </Button>
                                 <AlertDialog>
                                   <AlertDialogTrigger asChild>
-                                    <Button variant="outline" size="sm">
+                                    <Button
+                                      variant="outline"
+                                      size="sm"
+                                      onClick={(e) => e.stopPropagation()}
+                                    >
                                       <Trash2 className="w-4 h-4" />
                                     </Button>
                                   </AlertDialogTrigger>
@@ -1580,8 +1119,8 @@ export default function LifletPage() {
                                       </AlertDialogTitle>
                                       <AlertDialogDescription>
                                         Ova akcija ne može biti poništena. Ovo
-                                        će trajno obrisati ovaj artikal sa
-                                        lifleta.
+                                        će trajno obrisati liflet i sve njegove
+                                        povezane detalje.
                                       </AlertDialogDescription>
                                     </AlertDialogHeader>
                                     <AlertDialogFooter>
@@ -1589,9 +1128,7 @@ export default function LifletPage() {
                                         Odustani
                                       </AlertDialogCancel>
                                       <AlertDialogAction
-                                        onClick={() =>
-                                          handleDeleteDetail(detalj.id)
-                                        }
+                                        onClick={() => handleDelete(liflet.id)}
                                       >
                                         Obriši
                                       </AlertDialogAction>
@@ -1601,19 +1138,498 @@ export default function LifletPage() {
                               </div>
                             </td>
                           </tr>
-                        ))}
+                        ))
+                      )}
                     </tbody>
                   </table>
                 </div>
+
+                {/* Pagination */}
+                <div className="flex justify-between items-center mt-4">
+                  <div className="text-sm text-muted-foreground">
+                    Prikazano {(effectiveCurrentPage - 1) * itemsPerPage + 1} do{" "}
+                    {Math.min(
+                      effectiveCurrentPage * itemsPerPage,
+                      lifletZaglavlje.length
+                    )}{" "}
+                    od {lifletZaglavlje.length} zapisa{" "}
+                    {lifletZaglavlje.length !== totalRecords &&
+                      `(od ukupno ${totalRecords})`}
+                  </div>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      onClick={() =>
+                        setCurrentPage((prev) => Math.max(prev - 1, 1))
+                      }
+                      disabled={effectiveCurrentPage === 1}
+                    >
+                      Prethodna
+                    </Button>
+                    <Button
+                      variant="outline"
+                      onClick={() => setCurrentPage((prev) => prev + 1)}
+                      disabled={
+                        effectiveCurrentPage * itemsPerPage >=
+                        lifletZaglavlje.length
+                      }
+                    >
+                      Sledeća
+                    </Button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </CardContent>
+      </Card>
+
+      {/* Liflet Detalji */}
+      <Card className="w-full">
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle>
+            {selectedLiflet
+              ? `Detalji Lifleta - ID: ${selectedLiflet.id}`
+              : "Izaberite Liflet"}
+          </CardTitle>
+          {selectedLiflet && (
+            <Dialog
+              open={isCreateDetailModalOpen}
+              onOpenChange={setIsCreateDetailModalOpen}
+            >
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Dodaj Artikal
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Dodaj Artikal na Liflet</DialogTitle>
+                  <DialogDescription>
+                    Pretražite i izaberite artikal za dodavanje na ovaj liflet.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="article_search" className="text-right">
+                      Artikal
+                    </Label>
+                    <div className="col-span-3 relative">
+                      <Input
+                        id="article_search"
+                        placeholder="Type to search articles..."
+                        value={articleSearchTerm}
+                        onChange={(e) => {
+                          setArticleSearchTerm(e.target.value);
+                          searchArticles(e.target.value);
+                        }}
+                        className="w-full"
+                      />
+                      {showArticleDropdown && searchedArticles.length > 0 && (
+                        <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                          {searchedArticles.map((article) => (
+                            <div
+                              key={article.Id_Artikal}
+                              className="px-4 py-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0 flex items-center gap-3"
+                              onClick={() => selectArticle(article)}
+                            >
+                              <div className="flex-shrink-0">
+                                {article.hasImage && article.image ? (
+                                  <img
+                                    src={`/images/${article.image}`}
+                                    alt={article.DESCRIPTION || "Article"}
+                                    className="w-16 h-12 object-contain rounded border"
+                                  />
+                                ) : (
+                                  <div className="w-16 h-12 bg-muted rounded border flex items-center justify-center">
+                                    <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <div className="font-medium truncate">
+                                  {article.DESCRIPTION}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  Barkod: {article.BAR_CODE}
+                                </div>
+                                {article.PRICE && (
+                                  <div className="text-sm text-muted-foreground">
+                                    Cena: {article.PRICE}
+                                  </div>
+                                )}
+                                {article.hasImage && (
+                                  <div className="text-xs text-green-600 font-medium mt-1">
+                                    ✓ Ima sliku
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="client_search" className="text-right">
+                      Klijent
+                    </Label>
+                    <div className="col-span-3 relative">
+                      <Input
+                        id="client_search"
+                        placeholder="Pretražite klijente..."
+                        value={clientSearchTerm}
+                        onChange={(e) => {
+                          setClientSearchTerm(e.target.value);
+                          searchClients(e.target.value);
+                        }}
+                        className="w-full"
+                      />
+                      {showClientDropdown && searchedClients.length > 0 && (
+                        <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                          {searchedClients.map((client) => (
+                            <div
+                              key={client.ID_Klijent}
+                              className="px-4 py-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
+                              onClick={() => selectClient(client)}
+                            >
+                              <div className="font-medium">{client.Naziv}</div>
+                              <div className="text-sm text-muted-foreground">
+                                PIB: {client.PIB}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="cena_redovna" className="text-right">
+                      Regularna cena
+                    </Label>
+                    <Input
+                      id="cena_redovna"
+                      type="number"
+                      step="0.01"
+                      value={detailFormData.cena_redovna}
+                      onChange={(e) =>
+                        setDetailFormData({
+                          ...detailFormData,
+                          cena_redovna: e.target.value,
+                        })
+                      }
+                      className="col-span-3"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="cena_akcija" className="text-right">
+                      Akcijska cena
+                    </Label>
+                    <Input
+                      id="cena_akcija"
+                      type="number"
+                      step="0.01"
+                      value={detailFormData.cena_akcija}
+                      onChange={(e) =>
+                        setDetailFormData({
+                          ...detailFormData,
+                          cena_akcija: e.target.value,
+                        })
+                      }
+                      className="col-span-3"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <div className="grid grid-cols-4 items-start gap-4">
+                    <Label className="text-right pt-2">Slika</Label>
+                    <div className="col-span-3">
+                      <div
+                        className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                        onDrop={handleImageDrop}
+                        onDragOver={handleImageDragOver}
+                        onClick={() =>
+                          document.getElementById("image-input")?.click()
+                        }
+                      >
+                        {detailFormData.imagePreview ? (
+                          <div className="relative">
+                            <img
+                              src={detailFormData.imagePreview}
+                              alt="Preview"
+                              className="max-w-full max-h-32 mx-auto rounded"
+                            />
+                            <Button
+                              type="button"
+                              variant="destructive"
+                              size="sm"
+                              className="absolute top-2 right-2"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                removeImage();
+                              }}
+                            >
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ) : (
+                          <div>
+                            <ImageIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                            <p className="text-sm text-muted-foreground mb-1">
+                              Prevucite i spustite sliku ovde, ili kliknite da
+                              odaberete
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              Slika će biti sačuvana kao{" "}
+                              {detailFormData.Id_artikal || "ID_artikal"}.
+                              {detailFormData.image?.name.split(".").pop() ||
+                                "ekstenzija"}
+                            </p>
+                          </div>
+                        )}
+                      </div>
+                      <input
+                        id="image-input"
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            handleImageSelect(file);
+                          }
+                        }}
+                      />
+                      <p className="text-xs text-muted-foreground mt-2">
+                        Opciono: Pošaljite sliku za ovaj artikal
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="submit"
+                    onClick={handleCreateDetail}
+                    disabled={
+                      !detailFormData.selectedArticle ||
+                      !detailFormData.selectedClient
+                    }
+                  >
+                    Dodaj Artikal
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          )}
+        </CardHeader>
+        <CardContent>
+          {selectedLiflet ? (
+            <div>
+              <div className="mb-4 flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-1">
+                  <Search className="w-4 h-4" />
+                  <Input
+                    placeholder="Pretražite artikle..."
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    className="flex-1 max-w-xs"
+                  />
+                </div>
+                <Select value={clientFilter} onValueChange={setClientFilter}>
+                  <SelectTrigger className="w-48">
+                    <SelectValue placeholder="Filtriraj po klijentu" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Svi Klijenti</SelectItem>
+                    {Array.from(
+                      new Set(
+                        lifletDetalji
+                          .filter((item) => item.klijenti?.Naziv)
+                          .map((item) => item.klijenti!.Naziv!)
+                      )
+                    )
+                      .sort()
+                      .map((clientName) => (
+                        <SelectItem key={clientName} value={clientName}>
+                          {clientName}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={exportToPDF}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Izvezi PDF
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={openStoreSelectionModal}
+                  className="flex items-center gap-2"
+                >
+                  <Download className="w-4 h-4" />
+                  Dodaj u Rafove
+                </Button>
               </div>
-            ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                Izaberite liflet sa leve strane da biste videli njegove detalje
+
+              <div className="overflow-x-auto w-full">
+                <table className="w-full border-collapse border border-border">
+                  <thead>
+                    <tr className="bg-muted/50">
+                      <th className="border border-border px-2 py-2 text-left w-64">
+                        Artikal
+                      </th>
+                      <th className="border border-border px-2 py-2 text-left w-48">
+                        Klijent
+                      </th>
+                      <th className="border border-border px-4 py-2 text-left w-24">
+                        Regularna cena
+                      </th>
+                      <th className="border border-border px-4 py-2 text-left w-24">
+                        Akcijska cena
+                      </th>
+                      <th className="border border-border px-2 py-2 text-left w-20">
+                        Slika
+                      </th>
+                      <th className="border border-border px-2 py-2 text-left w-32">
+                        Akcije
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {lifletDetalji
+                      .filter((detalj) => {
+                        // Filter po tekstu
+                        const matchesSearch =
+                          !searchTerm ||
+                          detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
+                            searchTerm.toLowerCase()
+                          ) ||
+                          detalj.artikli?.BAR_CODE?.includes(searchTerm);
+
+                        // Filter po klijentu
+                        const matchesClient =
+                          clientFilter === "all" ||
+                          detalj.klijenti?.Naziv === clientFilter;
+
+                        return matchesSearch && matchesClient;
+                      })
+                      .map((detalj) => (
+                        <tr key={detalj.id} className="hover:bg-muted">
+                          <td className="border border-border px-2 py-2 w-64">
+                            <div>
+                              <div className="font-medium">
+                                {detalj.artikli?.DESCRIPTION}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {detalj.artikli?.Id_Artikal}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                {detalj.artikli?.BAR_CODE}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="border border-border px-2 py-2 w-48">
+                            <div>
+                              <div className="font-medium">
+                                {detalj.klijenti?.Naziv}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                PIB: {detalj.klijenti?.PIB}
+                              </div>
+                            </div>
+                          </td>
+                          <td className="border border-border px-2 py-2 w-24">
+                            {detalj.cena_redovna
+                              ? `${Number(detalj.cena_redovna).toFixed(2)}`
+                              : "-"}
+                          </td>
+                          <td className="border border-border px-2 py-2 w-24">
+                            {detalj.cena_akcija
+                              ? `${Number(detalj.cena_akcija).toFixed(2)}`
+                              : "-"}
+                          </td>
+                          <td className="border border-border px-2 py-2 w-20 justify-center items-center">
+                            {detalj.image ? (
+                              <img
+                                src={`/images/${detalj.image}`}
+                                alt={
+                                  detalj.artikli?.DESCRIPTION || "Article image"
+                                }
+                                className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 object-contain rounded cursor-pointer hover:opacity-80 mx-auto"
+                                onClick={() =>
+                                  window.open(
+                                    `/images/${detalj.image}`,
+                                    "_blank"
+                                  )
+                                }
+                              />
+                            ) : (
+                              <div className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 bg-muted rounded flex items-center justify-center">
+                                <ImageIcon className="w-3 h-3 sm:w-4 sm:h-4 md:w-5 md:h-5 lg:w-6 lg:h-6 text-muted-foreground" />
+                              </div>
+                            )}
+                          </td>
+                          <td className="border border-border px-2 py-2">
+                            <div className="flex space-x-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openEditDetailModal(detalj)}
+                              >
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button variant="outline" size="sm">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Da li ste sigurni?
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Ova akcija ne može biti poništena. Ovo će
+                                      trajno obrisati ovaj artikal sa lifleta.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Odustani
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() =>
+                                        handleDeleteDetail(detalj.id)
+                                      }
+                                    >
+                                      Obriši
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </div>
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              Izaberite liflet sa leve strane da biste videli njegove detalje
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Edit Modal */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>

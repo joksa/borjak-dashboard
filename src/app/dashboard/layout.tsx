@@ -13,7 +13,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex flex-col h-screen">
         <main className="flex-1 overflow-auto">
-          <div className="h-full w-full px-4 py-6">{children}</div>
+          <div className="h-full w-full px-2 py-6">{children}</div>
         </main>
       </div>
     );
@@ -28,9 +28,7 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       style={{ marginLeft: sidebarWidth }}
     >
       <main className="flex-1 overflow-auto">
-        <div className="h-full max-w-7xl mx-auto px-4 py-6 lg:px-8">
-          {children}
-        </div>
+        <div className="h-full w-full px-2 py-6">{children}</div>
       </main>
     </div>
   );
