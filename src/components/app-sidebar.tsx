@@ -214,7 +214,17 @@ export function AppSidebar() {
             <DropdownMenuContent align="end">
               <DropdownMenuLabel>Admin User</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={() => (window.location.href = "/")}>
+              <DropdownMenuItem 
+                onClick={async () => {
+                  try {
+                    await fetch("/api/auth/logout", { method: "POST" });
+                    window.location.href = "/";
+                  } catch (error) {
+                    console.error("Logout failed:", error);
+                    window.location.href = "/";
+                  }
+                }}
+              >
                 <LogOut className="mr-2 h-4 w-4" />
                 Odjavi se
               </DropdownMenuItem>

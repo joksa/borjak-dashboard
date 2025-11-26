@@ -15,9 +15,14 @@ import {
 import { LogOut, User } from "lucide-react"
 
 export function DashboardHeader() {
-  const handleLogout = () => {
-    // Clear any auth state and redirect to login
-    window.location.href = "/"
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout failed:", error);
+      window.location.href = "/";
+    }
   }
 
   return (

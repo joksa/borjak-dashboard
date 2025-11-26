@@ -126,7 +126,7 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-muted-foreground">
-          Email Sender
+          Email Sender ... { process.env.NEXT_PUBLIC_TOKEN_EXPIRE}
         </h1>
         <p className="text-muted-foreground">
           Send emails with optional file attachments
