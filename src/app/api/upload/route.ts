@@ -30,12 +30,14 @@ export async function POST(request: NextRequest) {
     // Create filename with Id_artikal
     const filename = `${idArtikal}.${fileExtension}`;
 
-    // Ensure public directory exists
-    const publicDir = join(process.cwd(), "public");
-    const imagesDir = join(publicDir, "images");
+    // Use /app/storage for persistent storage on VPS
+    // Falls back to local storage for development
+    const storageDir = process.env.NODE_ENV === 'production' 
+      ? '/app/storage'
+      : join(process.cwd(), 'storage');
 
     try {
-      await mkdir(imagesDir, { recursive: true });
+      await mkdir(storageDir, { recursive: true });
     } catch (error) {
       // Directory might already exist, continue
     }
@@ -44,17 +46,16 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Write file to public/images directory
-    const filepath = join(imagesDir, filename);
+    // Write file to storage directory
+    const filepath = join(storageDir, filename);
     await writeFile(filepath, buffer);
 
-    // Return the relative path for database storage
-    const imagePath = `/images/${filename}`;
+    // Return just the filename for database storage
+    const imagePath = filename;
 
     return NextResponse.json({
       success: true,
-      filename: filename,
-      path: imagePath
+      filename: filename
     });
 
   } catch (error) {

@@ -429,7 +429,7 @@ export default function LifletPage() {
                   <td style="padding: 8px; border: 1px solid #ddd; text-align: center;">
                     ${
                       detalj.image
-                        ? `<img src="/images/${detalj.image}" alt="Product" style="max-width: 35px; max-height: 35px; width: auto; height: auto; object-fit: contain; border: 1px solid #ddd;" />`
+                        ? `<img src="/api/images/${detalj.image}" alt="Product" style="max-width: 35px; max-height: 35px; width: auto; height: auto; object-fit: contain; border: 1px solid #ddd;" />`
                         : '<div style="width: 35px; height: 35px; background-color: #f0f0f0; display: inline-flex; align-items: center; justify-content: center; border: 1px solid #ddd; font-size: 12px;">📷</div>'
                     }
                   </td>
@@ -888,9 +888,19 @@ export default function LifletPage() {
 
   const openEditModal = (liflet: LifletZaglavlje) => {
     setEditingLiflet(liflet);
+    
+    // Format dates without timezone conversion to avoid date shifting
+    const formatDateForInput = (date: Date) => {
+      const d = new Date(date);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    };
+    
     setFormData({
-      datum_od: new Date(liflet.datum_od).toISOString().split("T")[0],
-      datum_do: new Date(liflet.datum_do).toISOString().split("T")[0],
+      datum_od: formatDateForInput(liflet.datum_od),
+      datum_do: formatDateForInput(liflet.datum_do),
       op_id: liflet.op_id?.toString() || "",
     });
     setIsEditModalOpen(true);
@@ -953,7 +963,7 @@ export default function LifletPage() {
                   <Input
                     id="datum_do"
                     type="date"
-                    value={formatSerbianDate(formData.datum_do)}
+                    value={formData.datum_do}
                     onChange={(e) =>
                       setFormData({ ...formData, datum_do: e.target.value })
                     }
@@ -1237,7 +1247,7 @@ export default function LifletPage() {
                               <div className="flex-shrink-0">
                                 {article.hasImage && article.image ? (
                                   <img
-                                    src={`/images/${article.image}`}
+                                    src={`/api/images/${article.image}`}
                                     alt={article.DESCRIPTION || "Article"}
                                     className="w-16 h-12 object-contain rounded border"
                                   />
@@ -1558,14 +1568,14 @@ export default function LifletPage() {
                           <td className="border border-border px-2 py-2 w-20 justify-center items-center">
                             {detalj.image ? (
                               <img
-                                src={`/images/${detalj.image}`}
+                                src={`/api/images/${detalj.image}`}
                                 alt={
                                   detalj.artikli?.DESCRIPTION || "Article image"
                                 }
                                 className="w-10 h-10 sm:w-12 sm:h-12 md:w-14 md:h-14 lg:w-16 lg:h-16 object-contain rounded cursor-pointer hover:opacity-80 mx-auto"
                                 onClick={() =>
                                   window.open(
-                                    `/images/${detalj.image}`,
+                                    `/api/images/${detalj.image}`,
                                     "_blank"
                                   )
                                 }
@@ -1803,7 +1813,7 @@ export default function LifletPage() {
                   ) : detailFormData.existingImage ? (
                     <div className="relative">
                       <img
-                        src={`/images/${detailFormData.existingImage}`}
+                        src={`/api/images/${detailFormData.existingImage}`}
                         alt="Existing"
                         className="max-w-full max-h-32 mx-auto rounded"
                       />
