@@ -13,13 +13,13 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex flex-col h-screen">
         <main className="flex-1 overflow-auto">
-          <div className="h-full w-full px-2 py-6">{children}</div>
+          <div className="h-full w-full px-4 py-6">{children}</div>
         </main>
       </div>
     );
   }
 
-  // Desktop/tablet: account for sidebar width
+  // Desktop/tablet: center content in remaining space after sidebar
   const sidebarWidth = state === "collapsed" ? "3rem" : "16rem";
 
   return (
@@ -27,8 +27,8 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
       className="flex flex-col h-screen"
       style={{ marginLeft: sidebarWidth }}
     >
-      <main className="flex-1 overflow-auto">
-        <div className="h-full w-full px-2 py-6">{children}</div>
+      <main className="flex-1 overflow-auto flex justify-center">
+        <div className="w-full max-w-7xl px-4 py-6">{children}</div>
       </main>
     </div>
   );

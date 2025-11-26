@@ -9,8 +9,8 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "Business Dashboard",
-  description: "A modern business dashboard application",
+  title: "Poslovna Tabla",
+  description: "Poslovna Tabla",
 };
 
 export default function RootLayout({
@@ -24,7 +24,7 @@ export default function RootLayout({
         className={`${dmSans.variable} font-sans antialiased h-full`}
       >
         <ThemeProvider
-          defaultTheme="system"
+          defaultTheme="light"
           storageKey="business-dashboard-theme"
         >
           <div className="h-full">
