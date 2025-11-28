@@ -3,7 +3,7 @@
 import { ThemeToggle } from "@/components/theme-toggle"
 import { SidebarTrigger } from "@/components/ui/sidebar"
 import { Separator } from "@/components/ui/separator"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,10 +34,8 @@ export function DashboardHeader() {
       <div className="ml-auto flex items-center gap-2 px-4">
         <ThemeToggle />
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Avatar className="h-8 w-8 cursor-pointer">
-              <AvatarFallback>AD</AvatarFallback>
-            </Avatar>
+          <DropdownMenuTrigger className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity">
+            AD
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
             <DropdownMenuLabel>Admin User</DropdownMenuLabel>
