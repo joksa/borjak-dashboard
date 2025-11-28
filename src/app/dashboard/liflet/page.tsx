@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -44,10 +45,12 @@ import {
   X,
   Image as ImageIcon,
   Download,
+  Share,
 } from "lucide-react";
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
+import JSZip from "jszip";
 
 type LifletZaglavlje = {
   id: number;
@@ -138,6 +141,8 @@ export default function LifletPage() {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isCreateDetailModalOpen, setIsCreateDetailModalOpen] = useState(false);
   const [isEditDetailModalOpen, setIsEditDetailModalOpen] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const [editingLiflet, setEditingLiflet] = useState<LifletZaglavlje | null>(
     null
   );
@@ -162,6 +167,12 @@ export default function LifletPage() {
     image: null as File | null,
     imagePreview: null as string | null,
     existingImage: null as string | null,
+  });
+
+  const [shareFormData, setShareFormData] = useState({
+    to: "",
+    subject: "",
+    message: "",
   });
 
   useEffect(() => {
@@ -533,6 +544,144 @@ export default function LifletPage() {
     } catch (error) {
       console.error("Error generating PDF:", error);
       toast.error("Failed to export PDF");
+    }
+  };
+
+  const handleShare = async () => {
+    if (!selectedLiflet) {
+      toast.error("Molimo izaberite liflet");
+      return;
+    }
+
+    if (!shareFormData.to.trim() || !shareFormData.subject.trim() || !shareFormData.message.trim()) {
+      toast.error("Molimo popunite sva polja");
+      return;
+    }
+
+    // Basic email validation
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(shareFormData.to)) {
+      toast.error("Molimo unesite validnu email adresu");
+      return;
+    }
+
+    setIsSharing(true);
+
+    try {
+      // Filter data based on current filters
+      const filteredData = lifletDetalji.filter((detalj) => {
+        const matchesSearch =
+          !searchTerm ||
+          detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
+            searchTerm.toLowerCase()
+          ) ||
+          detalj.artikli?.BAR_CODE?.includes(searchTerm);
+
+        const matchesClient =
+          clientFilter === "all" || detalj.klijenti?.Naziv === clientFilter;
+
+        return matchesSearch && matchesClient;
+      });
+
+      if (filteredData.length === 0) {
+        toast.error("Nema artikala za deljenje");
+        setIsSharing(false);
+        return;
+      }
+
+      // Create ZIP file
+      const zip = new JSZip();
+
+      // Create tab-delimited text data
+      const headers = [
+        "ID",
+        "Artikal",
+        "Šifra",
+        "Barkod",
+        "Klijent",
+        "PIB",
+        "Redovna cena",
+        "Akcijska cena",
+        "Slika"
+      ].join("\t");
+
+      const rows = filteredData.map((detalj) => {
+        return [
+          detalj.id,
+          detalj.artikli?.DESCRIPTION || "",
+          detalj.artikli?.Id_Artikal || "",
+          detalj.artikli?.BAR_CODE || "",
+          detalj.klijenti?.Naziv || "",
+          detalj.klijenti?.PIB || "",
+          detalj.cena_redovna ? Number(detalj.cena_redovna).toFixed(2) : "",
+          detalj.cena_akcija ? Number(detalj.cena_akcija).toFixed(2) : "",
+          detalj.image || ""
+        ].join("\t");
+      });
+
+      const textContent = [headers, ...rows].join("\n");
+      zip.file("artikli.txt", textContent);
+
+      // Create images folder and fetch images
+      const imagesFolder = zip.folder("slike");
+      if (imagesFolder) {
+        const imagePromises = filteredData
+          .filter((detalj) => detalj.image)
+          .map(async (detalj) => {
+            try {
+              const response = await fetch(`/api/images/${detalj.image}`);
+              if (response.ok) {
+                const blob = await response.blob();
+                imagesFolder.file(detalj.image!, blob);
+              }
+            } catch (error) {
+              console.error(`Failed to fetch image ${detalj.image}:`, error);
+            }
+          });
+
+        await Promise.all(imagePromises);
+      }
+
+      // Generate ZIP file
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      
+      // Create File object from blob
+      const zipFile = new File(
+        [zipBlob],
+        `liflet_${selectedLiflet.id}_${new Date().toISOString().split('T')[0]}.zip`,
+        { type: "application/zip" }
+      );
+
+      // Send email with attachment
+      const formData = new FormData();
+      formData.append("to", shareFormData.to.trim());
+      formData.append("subject", shareFormData.subject.trim());
+      formData.append("text", shareFormData.message.trim());
+      formData.append("attachment_0", zipFile);
+
+      const response = await fetch("/api/send-email", {
+        method: "POST",
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success) {
+        toast.success("Email uspešno poslat!");
+        setIsShareModalOpen(false);
+        setShareFormData({
+          to: "",
+          subject: "",
+          message: "",
+        });
+      } else {
+        toast.error(result.error || "Greška pri slanju emaila");
+      }
+    } catch (error) {
+      console.error("Error sharing liflet:", error);
+      toast.error("Greška pri deljenju lifleta");
+    } finally {
+      setIsSharing(false);
     }
   };
 
@@ -1205,16 +1354,17 @@ export default function LifletPage() {
               : "Izaberite Liflet"}
           </CardTitle>
           {selectedLiflet && (
-            <Dialog
-              open={isCreateDetailModalOpen}
-              onOpenChange={setIsCreateDetailModalOpen}
-            >
-              <DialogTrigger asChild>
-                <Button size="sm">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Dodaj Artikal
-                </Button>
-              </DialogTrigger>
+            <div className="flex gap-2">
+              <Dialog
+                open={isCreateDetailModalOpen}
+                onOpenChange={setIsCreateDetailModalOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button size="sm">
+                    <Plus className="w-4 h-4 mr-2" />
+                    Dodaj Artikal
+                  </Button>
+                </DialogTrigger>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
                   <DialogTitle>Dodaj Artikal na Liflet</DialogTitle>
@@ -1433,6 +1583,81 @@ export default function LifletPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            
+            <Dialog
+              open={isShareModalOpen}
+              onOpenChange={setIsShareModalOpen}
+            >
+              <DialogTrigger asChild>
+                <Button size="sm" variant="outline">
+                  <Share className="w-4 h-4 mr-2" />
+                  Podeli
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Podeli Liflet</DialogTitle>
+                  <DialogDescription>
+                    Pošalji sve artikle i slike u ZIP fajlu putem emaila
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-3 py-4">
+                  <div className="grid gap-2">
+                    <Label htmlFor="share_to">Email primaoca *</Label>
+                    <Input
+                      id="share_to"
+                      type="email"
+                      placeholder="primalac@example.com"
+                      value={shareFormData.to}
+                      onChange={(e) =>
+                        setShareFormData({ ...shareFormData, to: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="share_subject">Naslov *</Label>
+                    <Input
+                      id="share_subject"
+                      placeholder="Liflet - Artikli"
+                      value={shareFormData.subject}
+                      onChange={(e) =>
+                        setShareFormData({ ...shareFormData, subject: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="grid gap-2">
+                    <Label htmlFor="share_message">Poruka *</Label>
+                    <Textarea
+                      id="share_message"
+                      placeholder="Šaljem vam liflet sa artiklima..."
+                      value={shareFormData.message}
+                      onChange={(e) =>
+                        setShareFormData({ ...shareFormData, message: e.target.value })
+                      }
+                      rows={3}
+                    />
+                  </div>
+                </div>
+                <DialogFooter>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setIsShareModalOpen(false)}
+                    disabled={isSharing}
+                  >
+                    Odustani
+                  </Button>
+                  <Button
+                    type="submit"
+                    onClick={handleShare}
+                    disabled={isSharing}
+                  >
+                    {isSharing ? "Šaljem..." : "Pošalji"}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
           )}
         </CardHeader>
         <CardContent>
