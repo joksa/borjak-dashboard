@@ -13,6 +13,7 @@ import {
   Percent,
   LogOut,
   User,
+  Mail,
 } from "lucide-react";
 
 import {
@@ -71,6 +72,11 @@ const items = [
     title: "Cene Raf",
     url: "/dashboard/cene_raf",
     icon: DollarSign,
+  },
+  {
+    title: "Email",
+    url: "/dashboard/email",
+    icon: Mail,
   },
   /*{
     title: "Analytics",

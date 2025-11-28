@@ -4,7 +4,11 @@ import { jwtVerify } from "jose";
 
 export async function middleware(request: NextRequest) {
   const token = request.cookies.get("auth_token")?.value;
-  const secret = new TextEncoder().encode(process.env.NEXT_PUBLIC_JWT_PASS || "default_secret");
+  const jwtPass = process.env.JWT_PASS;
+  if (!jwtPass) {
+    console.warn("Middleware: JWT_PASS is not defined, using default secret");
+  }
+  const secret = new TextEncoder().encode(jwtPass || "default_secret");
 
   // Handle root path: Redirect to dashboard if authenticated
   if (request.nextUrl.pathname === "/") {

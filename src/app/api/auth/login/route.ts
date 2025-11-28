@@ -46,14 +46,21 @@ export async function POST(request: Request) {
     }
 
     // Generate JWT Token
-    const secret = new TextEncoder().encode(process.env.NEXT_PUBLIC_JWT_PASS || "default_secret");
+    // Generate JWT Token
+    const jwtPass = process.env.JWT_PASS;
+    if (!jwtPass) {
+      console.error("JWT_PASS is not defined in environment variables");
+      throw new Error("JWT_PASS configuration missing");
+    }
+    const secret = new TextEncoder().encode(jwtPass);
+    console.log("Secret length: ", secret.length);
     const token = await new SignJWT({ 
       id: user.id_korisnik, 
       username: user.username 
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
-      .setExpirationTime(process.env.NEXT_PUBLIC_TOKEN_EXPIRE || "90d")
+      .setExpirationTime(process.env.TOKEN_EXPIRE || "90d")
       .sign(secret);
 
     // Set Cookie

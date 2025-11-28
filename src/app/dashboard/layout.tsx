@@ -9,28 +9,17 @@ function DashboardContent({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
   const { state } = useSidebar();
 
-  if (isMobile) {
-    return (
-      <div className="flex flex-col h-screen">
-        <main className="flex-1 overflow-auto">
-          <div className="h-full w-full px-4 py-6">{children}</div>
-        </main>
-      </div>
-    );
-  }
-
-  // Desktop/tablet: center content in remaining space after sidebar
-  const sidebarWidth = state === "collapsed" ? "3rem" : "16rem";
+  // Desktop/tablet: push content to avoid sidebar
+  const sidebarWidth = state === "collapsed" ? "3rem" : "12rem";
+  const margin = isMobile ? "0" : sidebarWidth;
 
   return (
-    <div
-      className="flex flex-col h-screen"
-      style={{ marginLeft: sidebarWidth }}
+    <main
+      className="flex-1 overflow-auto transition-all duration-200 ease-linear"
+      style={{ marginLeft: margin }}
     >
-      <main className="flex-1 overflow-auto flex justify-center">
-        <div className="w-full max-w-7xl px-4 py-6">{children}</div>
-      </main>
-    </div>
+      <div className="w-full max-w-7xl mx-auto px-4 py-6">{children}</div>
+    </main>
   );
 }
 
