@@ -593,7 +593,8 @@ export const formatPriceTag = (
 export const printCeneRaf = async (
   items: PrintItem[],
   config: PrintConfig,
-  copies: number = 1
+  copies: number = 1,
+  printer?: string
 ): Promise<void> => {
   try {
     let htmlContent: string | string[] = "";
@@ -702,19 +703,24 @@ export const printCeneRaf = async (
       }
     }
 
+    // Determine PDF format and dimensions
+    // Default to A4 for grids (6x4, etc) unless A5 is explicitly requested
+    const isA5 = config.format === "A5";
+    const targetFormat = isA5 ? "a5" : "a4";
+    const pdfWidth = isA5 ? 148 : 210;
+    const pdfHeight = isA5 ? 210 : 297; 
+    const pxWidth = Math.round(pdfWidth * 3.7795); // Convert mm to px at roughly 96 DPI for canvas sizing
+
     // Create PDF
     const pdf = new jsPDF({
       orientation: "portrait",
       unit: "mm",
-      format: config.format === "A4" ? "a4" : "a5",
+      format: targetFormat,
     });
-
-    const imgWidth = config.format === "A4" ? 210 : 148; // A4 width: 210mm, A5: 148mm
-    const pageHeight = config.format === "A4" ? 297 : 210; // A4 height: 297mm, A5: 210mm
 
     // Handle different content structures
     if (Array.isArray(htmlContent)) {
-      // Multiple pages (6x4 format with 8 rows per page)
+      // Multiple pages
       for (const pageContent of htmlContent) {
         // Create temporary element for rendering
         const tempDiv = document.createElement("div");
@@ -722,41 +728,44 @@ export const printCeneRaf = async (
         tempDiv.style.position = "absolute";
         tempDiv.style.left = "-9999px";
         tempDiv.style.top = "-9999px";
-        tempDiv.style.width = "210mm";
+        // Explicitly match PDF width
+        tempDiv.style.width = `${pdfWidth}mm`; 
         tempDiv.style.background = "white";
         document.body.appendChild(tempDiv);
 
         // Render with html2canvas
         const canvas = await html2canvas(tempDiv, {
-          scale: 2,
+          scale: 2, // Good balance for text precision
           useCORS: true,
           allowTaint: true,
           backgroundColor: "#ffffff",
-          width: 794, // 210mm at 96 DPI
-          height: Math.max(1123, tempDiv.scrollHeight),
+          width: pxWidth,
+          windowWidth: pxWidth, // Helper for some scrollbar edge cases
+          height: Math.max(1, tempDiv.scrollHeight),
         });
 
         // Remove temporary element
         document.body.removeChild(tempDiv);
 
-        const imgData = canvas.toDataURL("image/png");
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        // Use JPEG with reasonable quality
+        const imgData = canvas.toDataURL("image/jpeg", 0.8);
+        const imgHeight = (canvas.height * pdfWidth) / canvas.width;
 
         // Add page to PDF
         if (htmlContent.indexOf(pageContent) > 0) {
           pdf.addPage();
         }
-        pdf.addImage(imgData, "PNG", 0, 0, imgWidth, imgHeight);
+        pdf.addImage(imgData, "JPEG", 0, 0, pdfWidth, imgHeight, undefined, 'FAST');
       }
     } else {
-      // Single content block (other formats)
-      // Create temporary element for rendering
+      // Single content block
       const tempDiv = document.createElement("div");
       tempDiv.innerHTML = htmlContent;
       tempDiv.style.position = "absolute";
       tempDiv.style.left = "-9999px";
       tempDiv.style.top = "-9999px";
-      tempDiv.style.width = config.format === "A4" ? "297mm" : "210mm";
+      // Explicitly match PDF width
+      tempDiv.style.width = `${pdfWidth}mm`;
       tempDiv.style.background = "white";
       document.body.appendChild(tempDiv);
 
@@ -766,37 +775,49 @@ export const printCeneRaf = async (
         useCORS: true,
         allowTaint: true,
         backgroundColor: "#ffffff",
-        width: config.format === "A4" ? 1123 : 794, // A4: 297mm, A5/other: 210mm at 96 DPI
-        height: Math.max(1123, tempDiv.scrollHeight),
+        width: pxWidth,
+        windowWidth: pxWidth,
+        height: Math.max(1, tempDiv.scrollHeight),
       });
 
       // Remove temporary element
       document.body.removeChild(tempDiv);
 
       // Create PDF content
-      const imgData = canvas.toDataURL("image/png");
-      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      const imgData = canvas.toDataURL("image/jpeg", 0.8);
+      const imgHeight = (canvas.height * pdfWidth) / canvas.width;
       let heightLeft = imgHeight;
       let position = 0;
 
       // Add first page
-      pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-      heightLeft -= pageHeight;
+      pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pdfHeight;
 
       // Add additional pages if needed
       while (heightLeft >= 0) {
         position = heightLeft - imgHeight;
         pdf.addPage();
-        pdf.addImage(imgData, "PNG", 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
+        pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+        heightLeft -= pdfHeight;
       }
     }
 
-    // Save PDF
-    const fileName = `cene_raf_${config.radnja}_${config.format}_${
-      config.tip_cene
-    }_${new Date().toISOString().split("T")[0]}.pdf`;
-    pdf.save(fileName);
+    // Output based on printer selection
+    if (printer === "Štampaj") {
+      // For direct printing, we trigger the browser's print dialog on the generated PDF
+      pdf.autoPrint();
+      
+      // We open a new window with the PDF blob to ensure it prints correctly without redirecting current page
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } else {
+      // Default: Save as PDF (download)
+      const fileName = `cene_raf_${config.radnja}_${config.format}_${
+        config.tip_cene
+      }_${new Date().toISOString().split("T")[0]}.pdf`;
+      pdf.save(fileName);
+    }
   } catch (error) {
     console.error("Error generating print PDF:", error);
     throw error;
@@ -923,5 +944,214 @@ export const getFormatPreview = (format: string, tip_cene: string): string => {
       return formatA4([mockItem]);
     default:
       return format6x4(mockItem, "", tip_cene);
+  }
+};
+
+export interface SpisakRafItem {
+  id: number;
+  id_prodavnica: number | null;
+  id_artikal: number | null;
+  amount: number | null;
+  artikli?: {
+    Id_Artikal: number;
+    DESCRIPTION: string | null;
+    BAR_CODE: string | null;
+  };
+  prodavnice?: {
+    ID_Prodavnica: number;
+    Naziv: string | null;
+  };
+}
+
+// Format Spisak Raf A4
+export const formatSpisakRafA4 = (items: SpisakRafItem[], radnjaName: string): string => {
+  const tableRows = items
+    .map((item) => {
+      const articleName = item.artikli?.DESCRIPTION || "";
+      const rawBarcode = item.artikli?.BAR_CODE || "";
+      // Split barcodes by space or comma and join with <br> for multi-line display
+      const barcodeDisplay = rawBarcode.split(/[\s,]+/).filter(b => b.trim().length > 0).join("<br/>");
+      const amount = item.amount ? Number(item.amount) : 0;
+
+      return `
+      <tr style="height: 12mm;">
+        <td style="border: 1px solid #000; padding: 3px 4px; font-size: 18px; line-height: 1.3; vertical-align: top;">${articleName}</td>
+        <td style="border: 1px solid #000; padding: 3px 4px; font-size: 18px; line-height: 1.3; text-align: center; vertical-align: top;">${barcodeDisplay}</td>
+        <td style="border: 1px solid #000; padding: 3px 4px; font-size: 18px; line-height: 1.3; text-align: right; font-weight: bold; vertical-align: top;">
+          ${formatSerbianNumberHTML(amount)}
+        </td>
+      </tr>
+    `;
+    })
+    .join("");
+
+  return `
+    <div style="
+      width: 210mm;
+      min-height: 297mm;
+      background: white;
+      padding: 10mm;
+      font-family: Arial, sans-serif;
+      box-sizing: border-box;
+    ">
+      <div style="display: flex; align-items: flex-start; margin-bottom: 5mm;">
+         <img src="/logo.png" style="height: 20mm; margin-right: 5mm;" />
+         <div style="font-weight: bold; font-size: 16px; line-height: 1.2;">
+            BORJAK TZR<br/>
+            Todorovića 7<br/>
+            Kraljevo - Grdica
+         </div>
+      </div>
+      
+      <h1 style="text-align: center; font-size: 16px; font-weight: bold; margin-bottom: 5mm; text-transform: uppercase;">
+        Spisak za punjenje rafa u prodavnici ${radnjaName}
+      </h1>
+
+      <table style="width: 100%; border-collapse: collapse; font-size: 18px;">
+        <thead>
+         <tr style="background: #f0f0f0; height: 12mm;">
+    <th
+      style="
+        border: 1px solid #000;
+        padding: 4px;
+        text-align: center;
+        vertical-align: top;
+        font-weight: bold;
+        line-height: 1.3;
+      "
+    >
+      Artikal
+    </th>
+
+    <th
+      style="
+        border: 1px solid #000;
+        padding: 4px;
+        text-align: center;
+        vertical-align: top;
+        font-weight: bold;
+        line-height: 1.3;
+      "
+    >
+      Barkod
+    </th>
+
+    <th
+      style="
+        border: 1px solid #000;
+        padding: 4px;
+        text-align: center;
+        vertical-align: top;
+        font-weight: bold;
+        line-height: 1.3;
+      "
+    >
+      Količina
+    </th>
+  </tr>
+        </thead>
+        <tbody>
+          ${tableRows}
+        </tbody>
+      </table>
+    </div>
+  `;
+};
+
+// Print function for Spisak Raf
+export const printSpisakRaf = async (
+  items: SpisakRafItem[],
+  radnjaName: string,
+  printer?: string
+): Promise<void> => {
+  try {
+    const htmlContent = formatSpisakRafA4(items, radnjaName);
+
+    // Create temporary element for rendering
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = htmlContent;
+    tempDiv.style.position = "absolute";
+    tempDiv.style.left = "-9999px";
+    tempDiv.style.top = "-9999px";
+    // Explicitly match PDF width
+    tempDiv.style.width = "210mm";
+    tempDiv.style.background = "white";
+    document.body.appendChild(tempDiv);
+
+    // Wait for images to load (specifically the logo)
+    const images = tempDiv.getElementsByTagName("img");
+    if (images.length > 0) {
+      await Promise.all(
+        Array.from(images).map(
+          (img) =>
+            new Promise((resolve) => {
+              if (img.complete) resolve(true);
+              else {
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(true);
+              }
+            })
+        )
+      );
+    }
+
+    // Render with html2canvas
+    const pdfWidth = 210;
+    const pxWidth = Math.round(pdfWidth * 3.7795); // Convert mm to px
+
+    const canvas = await html2canvas(tempDiv, {
+      scale: 2, // 2 is a good balance for A4 text quality
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: "#ffffff",
+      width: pxWidth,
+      windowWidth: pxWidth,
+      height: Math.max(1, tempDiv.scrollHeight),
+    });
+
+    // Remove temporary element
+    document.body.removeChild(tempDiv);
+
+    // Create PDF
+    const imgData = canvas.toDataURL("image/jpeg", 0.8);
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    const pageHeight = 297;
+    const imgHeight = (canvas.height * pdfWidth) / canvas.width;
+    let heightLeft = imgHeight;
+    let position = 0;
+
+    // Add first page
+    pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+    heightLeft -= pageHeight;
+
+    // Add additional pages if needed
+    while (heightLeft > 0) {
+      position = heightLeft - imgHeight;
+      pdf.addPage();
+      pdf.addImage(imgData, "JPEG", 0, position, pdfWidth, imgHeight, undefined, 'FAST');
+      heightLeft -= pageHeight;
+    }
+
+    // Output based on printer selection
+    if (printer === "Štampaj") {
+      pdf.autoPrint();
+      const blob = pdf.output("blob");
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank");
+    } else {
+      const fileName = `spisak_raf_${radnjaName.replace(
+        /\s+/g,
+        "_"
+      )}_${new Date().toISOString().split("T")[0]}.pdf`;
+      pdf.save(fileName);
+    }
+  } catch (error) {
+    console.error("Error generating spisak raf PDF:", error);
+    throw error;
   }
 };

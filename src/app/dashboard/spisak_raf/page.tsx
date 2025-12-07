@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -21,7 +21,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -41,25 +40,23 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
-  Printer,
   XCircle,
+  Printer,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
   printCeneRaf,
-  printLifletPriceTags,
-  getFormatPreview,
+  printSpisakRaf,
   type PrintConfig,
 } from "@/lib/print-utils";
 import { useAuthStore } from "@/store/useAuthStore";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
-type CeneRaf = {
+type SpisakRaf = {
   id: number;
   id_prodavnica: number | null;
   id_artikal: number | null;
-  cena_redovna: any; // Decimal type from Prisma
-  cena_akcija: any; // Decimal type from Prisma
-  napomena: string | null;
+  amount: number | null;
   prodavnice?: {
     ID_Prodavnica: number;
     Naziv: string | null;
@@ -76,8 +73,8 @@ type SortConfig = {
   direction: "asc" | "desc";
 };
 
-export default function CeneRafPage() {
-  const [ceneRaf, setCeneRaf] = useState<CeneRaf[]>([]);
+export default function SpisakRafPage() {
+  const [spisakRaf, setSpisakRaf] = useState<SpisakRaf[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [prodavnicaFilter, setProdavnicaFilter] = useState<string>("all");
@@ -96,14 +93,19 @@ export default function CeneRafPage() {
   const [printConfig, setPrintConfig] = useState<PrintConfig>({
     radnja: "",
     format: "6x4",
-    tip_cene: "",
+    tip_cene: "redovna", // Default value
     kopija: 1,
   });
+
+  // Printer modal state
+  const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
+  const [printers, setPrinters] = useState<string[]>([]);
+  const [selectedPrinter, setSelectedPrinter] = useState<string>("default");
 
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [editingCeneRaf, setEditingCeneRaf] = useState<CeneRaf | null>(null);
+  const [editingSpisakRaf, setEditingSpisakRaf] = useState<SpisakRaf | null>(null);
   const [isBulkDeleteModalOpen, setIsBulkDeleteModalOpen] = useState(false);
   const [bulkDeleteProdavnica, setBulkDeleteProdavnica] = useState<{
     ID_Prodavnica: number;
@@ -114,9 +116,7 @@ export default function CeneRafPage() {
   const [formData, setFormData] = useState({
     id_prodavnica: "",
     id_artikal: "",
-    cena_redovna: "",
-    cena_akcija: "",
-    napomena: "",
+    amount: "",
   });
 
   const [articleSearchTerm, setArticleSearchTerm] = useState("");
@@ -138,35 +138,23 @@ export default function CeneRafPage() {
     }>
   >([]);
   const [showProdavnicaDropdown, setShowProdavnicaDropdown] = useState(false);
-  
-  // Printer modal state
-  const [isPrinterModalOpen, setIsPrinterModalOpen] = useState(false);
-  const [printers, setPrinters] = useState<string[]>([]);
-  const [selectedPrinter, setSelectedPrinter] = useState<string>("default");
 
   const { user } = useAuthStore();
 
   useEffect(() => {
-    loadCeneRaf();
-  }, [sortConfig, printConfig.radnja]);
+    loadSpisakRaf();
+  }, [sortConfig, prodavnicaFilter]);
 
   // Preselect prodavnica for USER level
   useEffect(() => {
     if (user && user.level === 'USER') {
       const prodavnicaId = user.prodavnica.toString();
       setProdavnicaFilter(prodavnicaId);
-      setPrintConfig(prev => ({ ...prev, radnja: prodavnicaId }));
-      
-      // Also prefill for creation form
       setFormData(prev => ({ ...prev, id_prodavnica: prodavnicaId }));
-      // We don't have the name yet, but we will fetch it or search for it ideally.
-      // For now just setting the ID might be enough if we just want to lock the value.
-      // But we probably want to display the store name.
-      // We can try to find it in availableProdavnice if loaded, but availableProdavnice loads async.
     }
   }, [user]);
 
-  // Update prodavnica search term when availableProdavnice loads or user changes
+  // Update prodavnica search term
   useEffect(() => {
     if (user && user.level === 'USER' && availableProdavnice.length > 0) {
       const userStore = availableProdavnice.find(p => p.ID_Prodavnica === user.prodavnica);
@@ -176,7 +164,6 @@ export default function CeneRafPage() {
     }
   }, [user, availableProdavnice]);
 
-  // Reset to page 1 when filters or items per page change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, prodavnicaFilter, itemsPerPage]);
@@ -185,24 +172,23 @@ export default function CeneRafPage() {
     loadAvailableProdavnice();
   }, []);
 
-  const loadCeneRaf = async () => {
+  const loadSpisakRaf = useCallback(async () => {
     try {
       setLoading(true);
-      // Load all data for proper filtering and pagination
       const response = await fetch(
-        `/api/cene_raf?sort=${sortConfig.key}&order=${sortConfig.direction}&radnja=${printConfig.radnja}&limit=10000` // Large limit to get all data
+        `/api/spisak_raf?sort=${sortConfig.key}&order=${sortConfig.direction}&radnja=${prodavnicaFilter === 'all' ? '' : prodavnicaFilter}&limit=10000`
       );
       const data = await response.json();
     
-      setCeneRaf(data.data || []);
-      setTotalRecords(data.pagination?.total || 0);
+      setSpisakRaf(data.data || []);
+      // setTotalRecords(data.pagination?.total || 0);
     } catch (error) {
-      console.error("Error loading cene_raf:", error);
-      toast.error("Failed to load cene raf data");
+      console.error("Error loading spisak_raf:", error);
+      toast.error("Failed to load spisak raf data");
     } finally {
       setLoading(false);
     }
-  };
+  }, [sortConfig, prodavnicaFilter]);
 
   const loadAvailableProdavnice = async () => {
     try {
@@ -224,66 +210,66 @@ export default function CeneRafPage() {
 
   const handleCreate = async () => {
     try {
-      const response = await fetch("/api/cene_raf", {
+      const response = await fetch("/api/spisak_raf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
       if (response.ok) {
-        toast.success("Cene raf record created successfully");
+        toast.success("Uspešno dodato u spisak");
         setIsCreateModalOpen(false);
         resetForm();
-        loadCeneRaf();
+        loadSpisakRaf();
       } else {
-        toast.error("Failed to create cene raf record");
+        toast.error("Greška pri dodavanju");
       }
     } catch (error) {
-      console.error("Error creating cene raf:", error);
-      toast.error("Failed to create cene raf record");
+      console.error("Error creating spisak raf:", error);
+      toast.error("Greška pri dodavanju");
     }
   };
 
   const handleEdit = async () => {
-    if (!editingCeneRaf) return;
+    if (!editingSpisakRaf) return;
 
     try {
-      const response = await fetch(`/api/cene_raf/${editingCeneRaf.id}`, {
+      const response = await fetch(`/api/spisak_raf/${editingSpisakRaf.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
       });
 
       if (response.ok) {
-        toast.success("Cene raf record updated successfully");
+        toast.success("Uspešno ažurirano");
         setIsEditModalOpen(false);
-        setEditingCeneRaf(null);
+        setEditingSpisakRaf(null);
         resetForm();
-        loadCeneRaf();
+        loadSpisakRaf();
       } else {
-        toast.error("Failed to update cene raf record");
+        toast.error("Greška pri ažuriranju");
       }
     } catch (error) {
-      console.error("Error updating cene raf:", error);
-      toast.error("Failed to update cene raf record");
+      console.error("Error updating spisak raf:", error);
+      toast.error("Greška pri ažuriranju");
     }
   };
 
   const handleDelete = async (id: number) => {
     try {
-      const response = await fetch(`/api/cene_raf/${id}`, {
+      const response = await fetch(`/api/spisak_raf/${id}`, {
         method: "DELETE",
       });
 
       if (response.ok) {
-        toast.success("Cene raf record deleted successfully");
-        loadCeneRaf();
+        toast.success("Uspešno obrisano");
+        loadSpisakRaf();
       } else {
-        toast.error("Failed to delete cene raf record");
+        toast.error("Greška pri brisanju");
       }
     } catch (error) {
-      console.error("Error deleting cene raf:", error);
-      toast.error("Failed to delete cene raf record");
+      console.error("Error deleting spisak raf:", error);
+      toast.error("Greška pri brisanju");
     }
   };
 
@@ -292,7 +278,7 @@ export default function CeneRafPage() {
 
     try {
       const response = await fetch(
-        `/api/cene_raf?prodavnica_id=${bulkDeleteProdavnica.ID_Prodavnica}`,
+        `/api/spisak_raf?prodavnica_id=${bulkDeleteProdavnica.ID_Prodavnica}`,
         {
           method: "DELETE",
         }
@@ -307,12 +293,12 @@ export default function CeneRafPage() {
         );
         setIsBulkDeleteModalOpen(false);
         setBulkDeleteProdavnica(null);
-        loadCeneRaf();
+        loadSpisakRaf();
       } else {
         toast.error("Greška pri brisanju zapisa");
       }
     } catch (error) {
-      console.error("Error bulk deleting cene raf:", error);
+      console.error("Error bulk deleting spisak raf:", error);
       toast.error("Greška pri brisanju zapisa");
     }
   };
@@ -344,9 +330,7 @@ export default function CeneRafPage() {
     setFormData({
       id_prodavnica: userStoreId,
       id_artikal: "",
-      cena_redovna: "",
-      cena_akcija: "",
-      napomena: "",
+      amount: "",
     });
     setArticleSearchTerm("");
     setProdavnicaSearchTerm(userStoreName);
@@ -373,7 +357,7 @@ export default function CeneRafPage() {
   };
 
   const searchProdavnice = async (search: string) => {
-    if (search.length < 2) {
+     if (search.length < 2) {
       setSearchedProdavnice([]);
       return;
     }
@@ -390,36 +374,25 @@ export default function CeneRafPage() {
     }
   };
 
-  const selectArticle = async (article: any) => {
-    const newFormData = {
+  const selectArticle = async (article: {
+      Id_Artikal: number;
+      DESCRIPTION: string | null;
+      BAR_CODE: string | null;
+    }) => {
+    setFormData({
       ...formData,
       id_artikal: article.Id_Artikal.toString(),
-    };
+    });
     
     setArticleSearchTerm(`${article.DESCRIPTION} (${article.BAR_CODE})`);
     setShowArticleDropdown(false);
-
-    // Fetch prices if prodavnica is selected
-    if (formData.id_prodavnica) {
-      try {
-        const response = await fetch(
-          `/api/articles/check-price?articleId=${article.Id_Artikal}&prodavnicaId=${formData.id_prodavnica}`
-        );
-        if (response.ok) {
-          const data = await response.json();
-          if (data.found || (data.cena_redovna !== undefined)) {
-             newFormData.cena_redovna = data.cena_redovna?.toString() || "0";
-             newFormData.cena_akcija = data.cena_akcija?.toString() || "0";
-          }
-        }
-      } catch (error) {
-        console.error("Error fetching prices:", error);
-      }
-    }
-    setFormData(newFormData);
   };
 
-  const selectProdavnica = (prodavnica: any) => {
+  const selectProdavnica = (prodavnica: {
+      ID_Prodavnica: number;
+      Naziv: string | null;
+      Sifra: string | null;
+    }) => {
     setFormData({
       ...formData,
       id_prodavnica: prodavnica.ID_Prodavnica.toString(),
@@ -428,23 +401,17 @@ export default function CeneRafPage() {
     setShowProdavnicaDropdown(false);
   };
 
-  const openEditModal = (ceneRaf: CeneRaf) => {
-    setEditingCeneRaf(ceneRaf);
+  const openEditModal = (item: SpisakRaf) => {
+    setEditingSpisakRaf(item);
     setFormData({
-      id_prodavnica: ceneRaf.id_prodavnica?.toString() || "",
-      id_artikal: ceneRaf.id_artikal?.toString() || "",
-      cena_redovna: ceneRaf.cena_redovna
-        ? Number(ceneRaf.cena_redovna).toString()
-        : "",
-      cena_akcija: ceneRaf.cena_akcija
-        ? Number(ceneRaf.cena_akcija).toString()
-        : "",
-      napomena: ceneRaf.napomena || "",
+      id_prodavnica: item.id_prodavnica?.toString() || "",
+      id_artikal: item.id_artikal?.toString() || "",
+      amount: item.amount ? item.amount.toString() : "",
     });
     setArticleSearchTerm(
-      ceneRaf.artikli ? `${ceneRaf.artikli.DESCRIPTION}` : ""
+      item.artikli ? `${item.artikli.DESCRIPTION}` : ""
     );
-    setProdavnicaSearchTerm(ceneRaf.prodavnice?.Naziv || "");
+    setProdavnicaSearchTerm(item.prodavnice?.Naziv || "");
     setIsEditModalOpen(true);
   };
 
@@ -457,60 +424,7 @@ export default function CeneRafPage() {
     );
   };
 
-  const handlePrint = async () => {
-    try {
-      // Fetch available printers
-      // Note: Since this is a web app, we can't directly list system printers easily without an extension or specific browser API which is limited.
-      // However, usually "window.print()" opens the system dialog where user picks printer.
-      // If we are using a specific print utility (like Electron or a local service), we might fetch from there.
-      // Assuming 'printCeneRaf' might handle this or we just simulate a list for selecting "PDF" or "Default" if actual list unavailable.
-      // For now, let's simulate a list or fetch if an API exists. 
-      // If the requirement implies a backend service or Electron app, we would fetch from there.
-      // Adding a dummy list + PDF option as requested.
-      
-      const availablePrinters = ["Štampaj", "Sačuvaj kao PDF"];
-      setPrinters(availablePrinters);
-      setSelectedPrinter("Štampaj");
-      setIsPrinterModalOpen(true);
-    } catch (error) {
-      console.error("Error preparing print:", error);
-      toast.error("Failed to prepare print dialog");
-    }
-  };
-
-  const handleConfirmPrint = async () => {
-    try {
-      setIsPrinterModalOpen(false);
-      // Pass the selected printer to the print function
-      // We might need to update printCeneRaf to accept printer name if it handles direct printing
-      // or if it just generates a window/iframe to print, the browser dialog will still appear ultimately unless using a direct print service.
-      // For "Save as PDF", typically this is an option in the browser print dialog, 
-      // but if we want to force it or use a library to generate PDF download, that's different.
-      // Assuming for now passing it to the utils.
-      
-      await printCeneRaf(ceneRaf, printConfig, printConfig.kopija, selectedPrinter);
-      
-      toast.success(
-        `Štampanje ${ceneRaf.length} artikala u formatu ${
-          printConfig.format
-        } (${printConfig.kopija} kopija) - ${
-          printConfig.tip_cene === "akcija"
-            ? "Akcijske"
-            : printConfig.tip_cene === "redovna"
-            ? "Redovne"
-            : "Sve"
-        } cene`
-      );
-    } catch (error) {
-      console.error("Error printing:", error);
-      toast.error(
-        error instanceof Error ? error.message : "Greška pri štampanju"
-      );
-    }
-  };
-
-  const filteredData = ceneRaf.filter((item) => {
-    // Helper function to check if description contains all search term parts
+  const filteredData = spisakRaf.filter((item) => {
     const descriptionContainsAllParts = (
       description: string | null | undefined,
       searchTerm: string
@@ -522,8 +436,6 @@ export default function CeneRafPage() {
         .split(/\s+/)
         .filter((part) => part.length > 0);
       const descriptionLower = description.toLowerCase();
-
-      // All search parts must be present in the description
       return searchParts.every((part) => descriptionLower.includes(part));
     };
 
@@ -543,23 +455,65 @@ export default function CeneRafPage() {
     return matchesSearch && matchesProdavnica;
   });
 
-  // Paginate the filtered data
   const totalFilteredRecords = filteredData.length;
   const maxPages = Math.ceil(totalFilteredRecords / itemsPerPage);
-
-  // Reset to first page if current page is beyond available pages
   const effectiveCurrentPage =
     currentPage > maxPages && maxPages > 0 ? 1 : currentPage;
-
   const startIndex = (effectiveCurrentPage - 1) * itemsPerPage;
   const endIndex = startIndex + itemsPerPage;
   const paginatedData = filteredData.slice(startIndex, endIndex);
 
+
+  
+  const handlePrint = async () => {
+    try {
+      const availablePrinters = ["Štampaj", "Sačuvaj kao PDF"];
+      setPrinters(availablePrinters);
+      setSelectedPrinter("Štampaj");
+      setIsPrinterModalOpen(true);
+    } catch (error) {
+      console.error("Error preparing print:", error);
+      toast.error("Failed to prepare print dialog");
+    }
+  };
+
+  const handleConfirmPrint = async () => {
+    try {
+      setIsPrinterModalOpen(false);
+      
+      const itemsToPrint = filteredData; // Use filtered data to respect search/filter
+
+      if (itemsToPrint.length === 0) {
+        toast.warning("Nema artikala za štampanje");
+        return;
+      }
+      
+      let radnjaName = "Nepoznata radnja";
+      if (prodavnicaFilter !== "all") {
+        const store = availableProdavnice.find(p => p.ID_Prodavnica.toString() === prodavnicaFilter);
+        if (store) radnjaName = store.Naziv || `Prodavnica ${store.ID_Prodavnica}`;
+      } else if (itemsToPrint.length > 0 && itemsToPrint[0].prodavnice) {
+         // Fallback if mixed (though usually we print for one store) or just take first one
+         radnjaName = itemsToPrint[0].prodavnice.Naziv || `Prodavnica ${itemsToPrint[0].id_prodavnica}`;
+         if (itemsToPrint.some(i => i.id_prodavnica !== itemsToPrint[0].id_prodavnica)) {
+             radnjaName = "Više prodavnica";
+         }
+      }
+
+      await printSpisakRaf(itemsToPrint, radnjaName, selectedPrinter);
+      
+      toast.success(`Štampanje poslato`);
+    } catch (error) {
+      console.error("Error printing:", error);
+      toast.error(error instanceof Error ? error.message : "Greška pri štampanju");
+    }
+  };
+  
   return (
     <div className="flex flex-col gap-6 w-full">
       <Card className="w-full">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle>Upravljanje Cenama Raf</CardTitle>
+          <CardTitle>Upravljanje Spiskom Magacina</CardTitle>
           <div className="flex gap-2">
             <Button
               variant="destructive"
@@ -567,7 +521,7 @@ export default function CeneRafPage() {
               disabled={prodavnicaFilter === "all"}
             >
               <Trash2 className="w-4 h-4 mr-2" />
-              Resetuj markice za prodavnicu
+              Resetuj spisak za magacin
             </Button>
             <Dialog
               open={isCreateModalOpen}
@@ -576,18 +530,19 @@ export default function CeneRafPage() {
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="w-4 h-4 mr-2" />
-                  Dodaj Cenu Raf
+                  Dodaj u Spisak
                 </Button>
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>
-                  <DialogTitle>Dodaj Novu Cenu Raf</DialogTitle>
+                  <DialogTitle>Dodaj u spisak</DialogTitle>
                   <DialogDescription>
-                    Dodaj novi zapis o ceni na rafu.
+                    Dodaj novi artikal u spisak magacina.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
+                  {/* Article Search */}
+                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="article_search" className="text-right">
                       Artikal
                     </Label>
@@ -603,29 +558,13 @@ export default function CeneRafPage() {
                           }}
                           className="w-full pr-8"
                         />
-                        {articleSearchTerm && (
+                         {articleSearchTerm && (
                           <button
                             className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                             onClick={() => {
                               setArticleSearchTerm("");
                               setSearchedArticles([]);
-                              if (user?.level !== 'USER') {
-                                // Keep prodavnica if selected by USER
-                                setFormData(prev => ({
-                                  ...prev,
-                                  id_artikal: "",
-                                  cena_redovna: "",
-                                  cena_akcija: ""
-                                }));
-                              } else {
-                                // For USER, keep prodavnica but clear article and prices
-                                setFormData(prev => ({
-                                  ...prev,
-                                  id_artikal: "",
-                                  cena_redovna: "",
-                                  cena_akcija: ""
-                                }));
-                              }
+                              setFormData(prev => ({ ...prev, id_artikal: "" }));
                             }}
                           >
                             <XCircle className="w-4 h-4" />
@@ -653,6 +592,8 @@ export default function CeneRafPage() {
                       )}
                     </div>
                   </div>
+
+                  {/* Prodavnica Search */}
                   <div className="grid grid-cols-4 items-center gap-4">
                     <Label htmlFor="prodavnica_search" className="text-right">
                       Prodavnica
@@ -693,64 +634,30 @@ export default function CeneRafPage() {
                         )}
                     </div>
                   </div>
+
                   <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="cena_redovna" className="text-right">
-                      Redovna cena
+                    <Label htmlFor="amount" className="text-right">
+                      Količina
                     </Label>
                     <Input
-                      id="cena_redovna"
+                      id="amount"
                       type="number"
                       step="0.01"
-                      value={formData.cena_redovna}
+                      value={formData.amount}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          cena_redovna: e.target.value,
+                          amount: e.target.value,
                         })
                       }
                       className="col-span-3"
                       placeholder="0.00"
-                      disabled={!!formData.id_artikal}
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="cena_akcija" className="text-right">
-                      Akcijska cena
-                    </Label>
-                    <Input
-                      id="cena_akcija"
-                      type="number"
-                      step="0.01"
-                      value={formData.cena_akcija}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          cena_akcija: e.target.value,
-                        })
-                      }
-                      className="col-span-3"
-                      placeholder="0.00"
-                      disabled={!!formData.id_artikal}
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="napomena" className="text-right">
-                      Napomena
-                    </Label>
-                    <Input
-                      id="napomena"
-                      value={formData.napomena}
-                      onChange={(e) =>
-                        setFormData({ ...formData, napomena: e.target.value })
-                      }
-                      className="col-span-3"
-                      placeholder="Opciono: Unesite napomenu"
                     />
                   </div>
                 </div>
                 <DialogFooter>
                   <Button type="submit" onClick={handleCreate} disabled={!formData.id_artikal}>
-                    Dodaj Cenu Raf
+                    Dodaj
                   </Button>
                 </DialogFooter>
               </DialogContent>
@@ -798,11 +705,23 @@ export default function CeneRafPage() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="5">5 po stranici</SelectItem>
-                <SelectItem value="10">10 po stranici</SelectItem>
-                <SelectItem value="20">20 po stranici</SelectItem>
+                <SelectItem value="10">10 po strani</SelectItem>
+                <SelectItem value="20">20 po strani</SelectItem>
+                <SelectItem value="50">50 po strani</SelectItem>
+                <SelectItem value="100">100 po strani</SelectItem>
               </SelectContent>
             </Select>
+
+            <div className="ml-auto">
+              <Button 
+                onClick={handlePrint} 
+                className="disabled:opacity-50" 
+                disabled={!printConfig.format || !printConfig.tip_cene || !printConfig.kopija}
+              >
+                <Printer className="w-4 h-4 mr-2" />
+                Štampaj
+              </Button>
+            </div>
           </div>
 
           <div className="overflow-x-auto w-full">
@@ -819,7 +738,7 @@ export default function CeneRafPage() {
                       {getSortIcon("id")}
                     </div>
                   </th>
-                  <th
+                 <th
                     className="border border-border px-4 py-1 text-left cursor-pointer hover:bg-muted"
                     onClick={() => handleSort("id_artikal")}
                   >
@@ -828,7 +747,7 @@ export default function CeneRafPage() {
                       {getSortIcon("id_artikal")}
                     </div>
                   </th>
-                  <th
+                <th
                     className="border border-border px-4 py-1 text-left cursor-pointer hover:bg-muted"
                     onClick={() => handleSort("DESCRIPTION")}
                   >
@@ -837,20 +756,11 @@ export default function CeneRafPage() {
                       {getSortIcon("DESCRIPTION")}
                     </div>
                   </th>
-                  <th
-                    className="border border-border px-4 py-1 text-left cursor-pointer hover:bg-muted"
-                    onClick={() => handleSort("id_prodavnica")}
-                  >
-                    <div className="flex items-center space-x-1">
-                      <span>Prodavnica</span>
-                      {getSortIcon("id_prodavnica")}
-                    </div>
-                  </th>
                   <th className="border border-border px-4 py-1 text-left">
-                    Redovna cena
+                    Prodavnica
                   </th>
-                  <th className="border border-border px-4 py-1 text-left">
-                    Akcijska cena
+                  <th className="border border-border px-4 py-1 text-right">
+                    Količina
                   </th>
                   <th className="border border-border px-4 py-1 text-left">
                     Akcije
@@ -861,25 +771,25 @@ export default function CeneRafPage() {
                 {loading ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={6}
                       className="border border-border px-4 py-8 text-center"
                     >
                       Učitavanje...
                     </td>
                   </tr>
-                ) : filteredData.length === 0 ? (
+                ) : paginatedData.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={6}
                       className="border border-border px-4 py-8 text-center"
                     >
-                      Nije pronađen nijedan zapis o cenama raf
+                      Nema podataka
                     </td>
                   </tr>
                 ) : (
                   paginatedData.map((item) => (
                     <tr key={item.id} className="hover:bg-muted">
-                      <td className="border border-border px-4 py-0">
+                      <td className="border border-border px-4 py-0" style={{ display: "none" }}>
                         {item.id}
                       </td>
                       <td className="border border-border px-4 py-0">
@@ -909,14 +819,7 @@ export default function CeneRafPage() {
                         </div>
                       </td>
                       <td className="border border-border px-4 py-0 text-right">
-                        {item.cena_redovna
-                          ? `${Number(item.cena_redovna).toFixed(2)}`
-                          : "0.00"}
-                      </td>
-                      <td className="border border-border px-4 py-0 text-right">
-                        {item.cena_akcija
-                          ? `${Number(item.cena_akcija).toFixed(2)}`
-                          : "0.00"}
+                        {Number(item.amount).toFixed(2)}
                       </td>
                       <td className="border border-border px-4 py-0">
                         <div className="flex space-x-2">
@@ -927,32 +830,14 @@ export default function CeneRafPage() {
                           >
                             <Edit className="w-4 h-4" />
                           </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Da li ste sigurni?
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Ova akcija ne može biti poništena. Ovo će
-                                  trajno obrisati zapis o ceni raf.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Odustani</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(item.id)}
-                                >
-                                  Obriši
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-destructive hover:text-destructive/90"
+                            onClick={() => handleDelete(item.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
                         </div>
                       </td>
                     </tr>
@@ -961,162 +846,29 @@ export default function CeneRafPage() {
               </tbody>
             </table>
           </div>
-
-          {/* Pagination */}
-          <div className="flex justify-between items-center mt-4">
-            <div className="text-sm text-muted-foreground">
-              Prikazano {(effectiveCurrentPage - 1) * itemsPerPage + 1} do{" "}
-              {Math.min(
-                effectiveCurrentPage * itemsPerPage,
-                totalFilteredRecords
-              )}{" "}
-              od {totalFilteredRecords} zapisa{" "}
-              {totalFilteredRecords !== totalRecords &&
-                ``}
+          
+           {/* Pagination */}
+          <div className="flex items-center justify-end space-x-2 py-4">
+            <div className="text-sm text-muted-foreground mr-4">
+              Prikaz {startIndex + 1}-{Math.min(endIndex, totalFilteredRecords)}{" "}
+              od {totalFilteredRecords}
             </div>
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-                disabled={effectiveCurrentPage === 1}
-              >
-                Prethodna
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setCurrentPage((prev) => prev + 1)}
-                disabled={
-                  effectiveCurrentPage * itemsPerPage >= totalFilteredRecords
-                }
-              >
-                Sledeća
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Printing Configuration Card */}
-      <Card className="w-full">
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Printer className="w-5 h-5" />
-            Konfiguracija Štampanja
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Left Column - Form Fields */}
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="radnja">Prodavnica</Label>
-                <Select
-                  value={printConfig.radnja}
-                  onValueChange={(value) => {
-                    setPrintConfig({ ...printConfig, radnja: value });
-                  }}
-                  disabled={user?.level === 'USER'}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Izaberite prodavnicu" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {availableProdavnice.map((prodavnica) => (
-                      <SelectItem
-                        key={prodavnica.ID_Prodavnica}
-                        value={prodavnica.ID_Prodavnica.toString()}
-                      >
-                        {`${prodavnica.ID_Prodavnica} ${
-                          prodavnica.Naziv || ""
-                        }`.trim()}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="format">Format</Label>
-                <Select
-                  value={printConfig.format}
-                  onValueChange={(value) =>
-                    setPrintConfig({ ...printConfig, format: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Izaberite format" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="6x4">6x4 cm</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="tip_cene">Tip cene</Label>
-                <Select
-                  value={printConfig.tip_cene}
-                  onValueChange={(value) =>
-                    setPrintConfig({ ...printConfig, tip_cene: value })
-                  }
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Izaberite tip cene" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="akcija">Akcija</SelectItem>
-                    <SelectItem value="redovna">Redovna</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="kopija">Kopija</Label>
-                <Input
-                  id="kopija"
-                  type="number"
-                  min="1"
-                  max="99"
-                  value={printConfig.kopija}
-                  onChange={(e) =>
-                    setPrintConfig({
-                      ...printConfig,
-                      kopija: parseInt(e.target.value) || 1,
-                    })
-                  }
-                  placeholder="1"
-                />
-              </div>
-
-
-              
-              <div className="pt-4">
-                 <Button onClick={handlePrint} className="w-full disabled:opacity-50" disabled={!printConfig.format || !printConfig.tip_cene || !printConfig.kopija}>
-                    <Printer className="w-4 h-4 mr-2" />
-                    Štampaj
-                 </Button>
-              </div>
-            </div>
-
-            {/* Right Column - Print Preview */}
-            <div className="space-y-4">
-              <h3 className="text-lg font-semibold">Pregled štampanja</h3>
-              {printConfig.format ? (
-                <div
-                  className="border-2 border-dashed border-border rounded-lg p-4"
-                  dangerouslySetInnerHTML={{
-                    __html: getFormatPreview(
-                      printConfig.format,
-                      printConfig.tip_cene
-                    ),
-                  }}
-                />
-              ) : (
-                <div className="border-2 border-dashed border-border rounded-lg p-8 text-center text-muted-foreground">
-                  Izaberite format da vidite pregled štampanja
-                </div>
-              )}
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+            >
+              Prethodna
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage((p) => Math.min(maxPages, p + 1))}
+              disabled={currentPage === maxPages || maxPages === 0}
+            >
+              Sledeća
+            </Button>
           </div>
         </CardContent>
       </Card>
@@ -1125,113 +877,83 @@ export default function CeneRafPage() {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Uredi Cenu Raf</DialogTitle>
-            <DialogDescription>
-              Ažuriraj informacije o ceni raf.
-            </DialogDescription>
+             <DialogTitle>Izmeni Spisak</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Artikal</Label>
-              <div className="col-span-3">
-                <Input value={articleSearchTerm} disabled className="w-full" />
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label className="text-right">Prodavnica</Label>
-              <div className="col-span-3">
-                <Input
-                  value={prodavnicaSearchTerm}
-                  disabled
-                  className="w-full"
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit_cena_redovna" className="text-right">
-                Redovna cena
-              </Label>
-              <Input
-                id="edit_cena_redovna"
-                type="number"
-                step="0.01"
-                value={formData.cena_redovna}
-                onChange={(e) =>
-                  setFormData({ ...formData, cena_redovna: e.target.value })
-                }
-                className="col-span-3"
-                placeholder="0.00"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit_cena_akcija" className="text-right">
-                Akcijska cena
-              </Label>
-              <Input
-                id="edit_cena_akcija"
-                type="number"
-                step="0.01"
-                value={formData.cena_akcija}
-                onChange={(e) =>
-                  setFormData({ ...formData, cena_akcija: e.target.value })
-                }
-                className="col-span-3"
-                placeholder="0.00"
-              />
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="edit_napomena" className="text-right">
-                Napomena
-              </Label>
-              <Input
-                id="edit_napomena"
-                value={formData.napomena}
-                onChange={(e) =>
-                  setFormData({ ...formData, napomena: e.target.value })
-                }
-                className="col-span-3"
-                placeholder="Opciono: Unesite napomenu"
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button type="submit" onClick={handleEdit}>
-              Ažuriraj Cenu Raf
-            </Button>
-          </DialogFooter>
+           <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">Artikal</Label>
+                    <div className="col-span-3 font-medium">
+                      {articleSearchTerm}
+                    </div>
+                  </div>
+                  
+                   <div className="grid grid-cols-4 items-center gap-4">
+                    <Label className="text-right">Prodavnica</Label>
+                    <div className="col-span-3 font-medium">
+                      {prodavnicaSearchTerm}
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="edit_amount" className="text-right">
+                      Količina
+                    </Label>
+                    <Input
+                      id="edit_amount"
+                      type="number"
+                      step="0.01"
+                      value={formData.amount}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          amount: e.target.value,
+                        })
+                      }
+                      className="col-span-3"
+                    />
+                  </div>
+           </div>
+           
+           <DialogFooter>
+             <Button variant="outline" onClick={() => setIsEditModalOpen(false)}>
+                Odustani
+             </Button>
+             <Button onClick={handleEdit}>
+                Sačuvaj
+             </Button>
+           </DialogFooter>
         </DialogContent>
       </Dialog>
-
-      {/* Bulk Delete Modal */}
+      
+       {/* Bulk Delete Alert */}
       <AlertDialog
         open={isBulkDeleteModalOpen}
         onOpenChange={setIsBulkDeleteModalOpen}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Obriši sve zapise za prodavnicu</AlertDialogTitle>
+            <AlertDialogTitle>Da li ste sigurni?</AlertDialogTitle>
             <AlertDialogDescription>
-              Da li ste sigurni da želite da obrišete sve zapise o cenama raf za
-              prodavnicu{" "}
-              <strong>
+              Ova akcija će obrisati sve stavke iz spiska magacina za prodavnicu{" "}
+              <span className="font-bold">
                 {bulkDeleteProdavnica?.Naziv ||
-                  `Prodavnica ${bulkDeleteProdavnica?.ID_Prodavnica}`}
-              </strong>
-              ?<br />
-              Ova akcija ne može biti poništena.
+                  bulkDeleteProdavnica?.ID_Prodavnica}
+              </span>
+              . Ova radnja je nepovratna.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Odustani</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleBulkDelete}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={handleBulkDelete}
             >
               Obriši sve
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
       {/* Printer Selection Modal */}
       <Dialog open={isPrinterModalOpen} onOpenChange={setIsPrinterModalOpen}>
         <DialogContent className="sm:max-w-md">

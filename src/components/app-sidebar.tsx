@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 
 import { usePathname } from "next/navigation";
+import Link from "next/link";
 import {
   Home,
   BarChart3,
@@ -16,6 +17,8 @@ import {
   LogOut,
   User,
   Mail,
+  Store,
+  Sheet,
 } from "lucide-react";
 
 import {
@@ -75,6 +78,11 @@ const items = [
     title: "Cene Raf",
     url: "/dashboard/cene_raf",
     icon: DollarSign,
+  },
+  {
+    title: "Spisak za Raf",
+    url: "/dashboard/spisak_raf",
+    icon: Sheet,
   },
   {
     title: "Email",
@@ -143,11 +151,15 @@ const items = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const { user, isLoading, checkSession } = useAuthStore();
+  const { user, isLoading, checkSession, setLoading } = useAuthStore();
 
   useEffect(() => {
-    checkSession();
-  }, [checkSession]);
+    if (!user) {
+      checkSession();
+    } else if (isLoading) {
+      setLoading(false);
+    }
+  }, [user, checkSession, isLoading, setLoading]);
   
   const userLevel = user?.level;
   const loading = isLoading;
@@ -196,10 +208,10 @@ export function AppSidebar() {
                       tooltip={item.title}
                       isActive={isActive}
                     >
-                      <a href={item.url}>
+                      <Link href={item.url}>
                         <item.icon />
                         <span>{item.title}</span>
-                      </a>
+                      </Link>
                     </SidebarMenuButton>
                     {item.items?.length ? (
                       <SidebarMenuSub>
@@ -211,9 +223,9 @@ export function AppSidebar() {
                                 asChild
                                 isActive={isSubItemActive}
                               >
-                                <a href={subItem.url}>
+                                <Link href={subItem.url}>
                                   <span>{subItem.title}</span>
-                                </a>
+                                </Link>
                               </SidebarMenuSubButton>
                             </SidebarMenuSubItem>
                           );
@@ -255,7 +267,7 @@ export function AppSidebar() {
           </DropdownMenu>
         </div>
         <div className="px-4 pb-2 text-xs text-muted-foreground text-center">
-          © 2025 Borjak
+          © { new Date().getFullYear() } Borjak
         </div>
       </SidebarFooter>
     </Sidebar>

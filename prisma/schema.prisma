@@ -70,6 +70,7 @@ model artikli {
   Pak_Bar_Code      String?          @db.VarChar(45)
   cene_raf          cene_raf[]
   liflet_detalji    liflet_detalji[]
+  spisak_raf        spisak_raf[]
 }
 
 model bar_code {
@@ -347,4 +348,15 @@ model cene_raf {
 
   @@index([id_artikal], map: "idx_cene_raf_id_artikal")
   @@index([id_prodavnica], map: "idx_cene_raf_id_prodavnica")
+}
+
+model spisak_raf {
+  id            Int      @id @default(autoincrement())
+  id_prodavnica Int?
+  id_artikal    Int?
+  amount        Decimal? @default(0.00) @db.Decimal(15, 2)
+  artikli       artikli? @relation(fields: [id_artikal], references: [Id_Artikal], onDelete: NoAction, onUpdate: NoAction, map: "fk_spisak_raf_artikli")
+
+  @@index([id_artikal], map: "idx_spisak_raf_id_artikal")
+  @@index([id_prodavnica], map: "idx_spisak_raf_id_prodavnica")
 }
