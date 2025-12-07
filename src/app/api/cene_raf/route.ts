@@ -10,6 +10,11 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get("limit") || "10");
     const sort = searchParams.get("sort") || "id";
     const order = searchParams.get("order") || "desc";
+    const radnja = searchParams.get("radnja") || "";
+
+
+    console.log("radnja", radnja);
+
 
     const offset = (page - 1) * limit;
 
@@ -19,6 +24,11 @@ export async function GET(request: NextRequest) {
       },
       skip: offset,
       take: limit,
+      where: {
+        id_prodavnica: {
+          in: radnja ? [parseInt(radnja)] : undefined,
+        },
+      },
     });
 
     // Get artikli data separately

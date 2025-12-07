@@ -41,6 +41,7 @@ import {
   ArrowUp,
   ArrowDown,
   Printer,
+  XCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -49,6 +50,7 @@ import {
   getFormatPreview,
   type PrintConfig,
 } from "@/lib/print-utils";
+import { useAuthStore } from "@/store/useAuthStore";
 
 type CeneRaf = {
   id: number;
@@ -135,10 +137,38 @@ export default function CeneRafPage() {
     }>
   >([]);
   const [showProdavnicaDropdown, setShowProdavnicaDropdown] = useState(false);
+  
+  const { user } = useAuthStore();
 
   useEffect(() => {
     loadCeneRaf();
-  }, [sortConfig]);
+  }, [sortConfig, printConfig.radnja]);
+
+  // Preselect prodavnica for USER level
+  useEffect(() => {
+    if (user && user.level === 'USER') {
+      const prodavnicaId = user.prodavnica.toString();
+      setProdavnicaFilter(prodavnicaId);
+      setPrintConfig(prev => ({ ...prev, radnja: prodavnicaId }));
+      
+      // Also prefill for creation form
+      setFormData(prev => ({ ...prev, id_prodavnica: prodavnicaId }));
+      // We don't have the name yet, but we will fetch it or search for it ideally.
+      // For now just setting the ID might be enough if we just want to lock the value.
+      // But we probably want to display the store name.
+      // We can try to find it in availableProdavnice if loaded, but availableProdavnice loads async.
+    }
+  }, [user]);
+
+  // Update prodavnica search term when availableProdavnice loads or user changes
+  useEffect(() => {
+    if (user && user.level === 'USER' && availableProdavnice.length > 0) {
+      const userStore = availableProdavnice.find(p => p.ID_Prodavnica === user.prodavnica);
+      if (userStore) {
+        setProdavnicaSearchTerm(userStore.Naziv || userStore.ID_Prodavnica.toString());
+      }
+    }
+  }, [user, availableProdavnice]);
 
   // Reset to page 1 when filters or items per page change
   useEffect(() => {
@@ -154,9 +184,10 @@ export default function CeneRafPage() {
       setLoading(true);
       // Load all data for proper filtering and pagination
       const response = await fetch(
-        `/api/cene_raf?sort=${sortConfig.key}&order=${sortConfig.direction}&limit=10000` // Large limit to get all data
+        `/api/cene_raf?sort=${sortConfig.key}&order=${sortConfig.direction}&radnja=${printConfig.radnja}&limit=10000` // Large limit to get all data
       );
       const data = await response.json();
+    
       setCeneRaf(data.data || []);
       setTotalRecords(data.pagination?.total || 0);
     } catch (error) {
@@ -300,15 +331,19 @@ export default function CeneRafPage() {
   };
 
   const resetForm = () => {
+    const isUser = user && user.level === 'USER';
+    const userStoreId = isUser ? user.prodavnica.toString() : "";
+    const userStoreName = (isUser && availableProdavnice.find(p => p.ID_Prodavnica === user.prodavnica)?.Naziv) || (isUser ? user.prodavnica.toString() : "");
+
     setFormData({
-      id_prodavnica: "",
+      id_prodavnica: userStoreId,
       id_artikal: "",
       cena_redovna: "",
       cena_akcija: "",
       napomena: "",
     });
     setArticleSearchTerm("");
-    setProdavnicaSearchTerm("");
+    setProdavnicaSearchTerm(userStoreName);
     setSearchedArticles([]);
     setSearchedProdavnice([]);
   };
@@ -321,7 +356,7 @@ export default function CeneRafPage() {
 
     try {
       const response = await fetch(
-        `/api/articles?search=${encodeURIComponent(search)}&limit=20`
+        `/api/articles?search=${encodeURIComponent(search)}&limit=50`
       );
       const data = await response.json();
       setSearchedArticles(data.data || []);
@@ -349,13 +384,33 @@ export default function CeneRafPage() {
     }
   };
 
-  const selectArticle = (article: any) => {
-    setFormData({
+  const selectArticle = async (article: any) => {
+    const newFormData = {
       ...formData,
       id_artikal: article.Id_Artikal.toString(),
-    });
+    };
+    
     setArticleSearchTerm(`${article.DESCRIPTION} (${article.BAR_CODE})`);
     setShowArticleDropdown(false);
+
+    // Fetch prices if prodavnica is selected
+    if (formData.id_prodavnica) {
+      try {
+        const response = await fetch(
+          `/api/articles/check-price?articleId=${article.Id_Artikal}&prodavnicaId=${formData.id_prodavnica}`
+        );
+        if (response.ok) {
+          const data = await response.json();
+          if (data.found || (data.cena_redovna !== undefined)) {
+             newFormData.cena_redovna = data.cena_redovna?.toString() || "0";
+             newFormData.cena_akcija = data.cena_akcija?.toString() || "0";
+          }
+        }
+      } catch (error) {
+        console.error("Error fetching prices:", error);
+      }
+    }
+    setFormData(newFormData);
   };
 
   const selectProdavnica = (prodavnica: any) => {
@@ -501,16 +556,46 @@ export default function CeneRafPage() {
                       Artikal
                     </Label>
                     <div className="col-span-3 relative">
-                      <Input
-                        id="article_search"
-                        placeholder="Pretražite artikle..."
-                        value={articleSearchTerm}
-                        onChange={(e) => {
-                          setArticleSearchTerm(e.target.value);
-                          searchArticles(e.target.value);
-                        }}
-                        className="w-full"
-                      />
+                      <div className="relative">
+                        <Input
+                          id="article_search"
+                          placeholder="Pretražite artikle..."
+                          value={articleSearchTerm}
+                          onChange={(e) => {
+                            setArticleSearchTerm(e.target.value);
+                            searchArticles(e.target.value);
+                          }}
+                          className="w-full pr-8"
+                        />
+                        {articleSearchTerm && (
+                          <button
+                            className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                            onClick={() => {
+                              setArticleSearchTerm("");
+                              setSearchedArticles([]);
+                              if (user?.level !== 'USER') {
+                                // Keep prodavnica if selected by USER
+                                setFormData(prev => ({
+                                  ...prev,
+                                  id_artikal: "",
+                                  cena_redovna: "",
+                                  cena_akcija: ""
+                                }));
+                              } else {
+                                // For USER, keep prodavnica but clear article and prices
+                                setFormData(prev => ({
+                                  ...prev,
+                                  id_artikal: "",
+                                  cena_redovna: "",
+                                  cena_akcija: ""
+                                }));
+                              }
+                            }}
+                          >
+                            <XCircle className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
                       {showArticleDropdown && searchedArticles.length > 0 && (
                         <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                           {searchedArticles.map((article) => (
@@ -546,6 +631,7 @@ export default function CeneRafPage() {
                           searchProdavnice(e.target.value);
                         }}
                         className="w-full"
+                        disabled={user?.level === 'USER'}
                       />
                       {showProdavnicaDropdown &&
                         searchedProdavnice.length > 0 && (
@@ -588,6 +674,7 @@ export default function CeneRafPage() {
                       }
                       className="col-span-3"
                       placeholder="0.00"
+                      disabled={!!formData.id_artikal}
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
@@ -607,6 +694,7 @@ export default function CeneRafPage() {
                       }
                       className="col-span-3"
                       placeholder="0.00"
+                      disabled={!!formData.id_artikal}
                     />
                   </div>
                   <div className="grid grid-cols-4 items-center gap-4">
@@ -625,7 +713,7 @@ export default function CeneRafPage() {
                   </div>
                 </div>
                 <DialogFooter>
-                  <Button type="submit" onClick={handleCreate}>
+                  <Button type="submit" onClick={handleCreate} disabled={!formData.id_artikal}>
                     Dodaj Cenu Raf
                   </Button>
                 </DialogFooter>
@@ -646,6 +734,7 @@ export default function CeneRafPage() {
             <Select
               value={prodavnicaFilter}
               onValueChange={setProdavnicaFilter}
+              disabled={user?.level === 'USER'}
             >
               <SelectTrigger className="w-48">
                 <SelectValue placeholder="Filtriraj po prodavnici" />
@@ -865,12 +954,13 @@ export default function CeneRafPage() {
             {/* Left Column - Form Fields */}
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="radnja">Radnja</Label>
+                <Label htmlFor="radnja">Prodavnica</Label>
                 <Select
                   value={printConfig.radnja}
-                  onValueChange={(value) =>
-                    setPrintConfig({ ...printConfig, radnja: value })
-                  }
+                  onValueChange={(value) => {
+                    setPrintConfig({ ...printConfig, radnja: value });
+                  }}
+                  disabled={user?.level === 'USER'}
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="Izaberite prodavnicu" />

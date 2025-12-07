@@ -18,32 +18,31 @@ export async function GET(request: NextRequest) {
     let whereCondition: any = {};
 
     if (searchWords.length > 0) {
-      // Create OR conditions for each field (DESCRIPTION or BAR_CODE)
-      // Each field must contain ALL search words (AND logic for words within field)
-      whereCondition = {
-        OR: [
-          // DESCRIPTION must contain all words
-          searchWords.length === 1
-            ? {
-                DESCRIPTION: { contains: searchWords[0] },
-              }
-            : {
-                AND: searchWords.map((word) => ({
-                  DESCRIPTION: { contains: word },
-                })),
-              },
-          // BAR_CODE must contain all words
-          searchWords.length === 1
-            ? {
-                BAR_CODE: { contains: searchWords[0] },
-              }
-            : {
-                AND: searchWords.map((word) => ({
-                  BAR_CODE: { contains: word },
-                })),
-              },
-        ],
-      };
+      const orConditions: any[] = [];
+
+      // DESCRIPTION must contain all words
+      orConditions.push(
+        searchWords.length === 1
+          ? { DESCRIPTION: { contains: searchWords[0] } }
+          : { AND: searchWords.map((word) => ({ DESCRIPTION: { contains: word } })) }
+      );
+
+      // BAR_CODE must contain all words
+      orConditions.push(
+        searchWords.length === 1
+          ? { BAR_CODE: { contains: searchWords[0] } }
+          : { AND: searchWords.map((word) => ({ BAR_CODE: { contains: word } })) }
+      );
+
+      // Id_Artikal must match (exact) - only if single word and is a valid number
+      if (searchWords.length === 1) {
+        const id = parseInt(searchWords[0]);
+        if (!isNaN(id)) {
+          orConditions.push({ Id_Artikal: { equals: id } });
+        }
+      }
+
+      whereCondition = { OR: orConditions };
     }
 
     const articles = await prisma.artikli.findMany({

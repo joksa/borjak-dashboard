@@ -7,6 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+enum Role {
+  USER
+  MANAGER
+  ADMIN
+}
+
 model artikli {
   Id_Artikal        Int              @id
   DESCRIPTION       String?          @db.VarChar(255)
@@ -179,6 +185,8 @@ model korisnici {
   username    String?  @unique(map: "username") @db.VarChar(50)
   password    String?  @db.VarChar(255)
   active      Boolean? @default(true)
+  level       Role     @default(USER)
+  prodavnica  Int      @default(1)
 }
 
 model operateri {

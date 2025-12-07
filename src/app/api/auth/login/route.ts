@@ -56,7 +56,9 @@ export async function POST(request: Request) {
     console.log("Secret length: ", secret.length);
     const token = await new SignJWT({ 
       id: user.id_korisnik, 
-      username: user.username 
+      username: user.username,
+      level: user.level,
+      prodavnica: user.prodavnica
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
@@ -77,7 +79,9 @@ export async function POST(request: Request) {
       success: true, 
       user: { 
         id: user.id_korisnik, 
-        username: user.username 
+        username: user.username,
+        level: user.level,
+        prodavnica: user.prodavnica
       } 
     });
 

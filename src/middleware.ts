@@ -31,7 +31,21 @@ export async function middleware(request: NextRequest) {
     }
 
     try {
-      await jwtVerify(token, secret);
+      const { payload } = await jwtVerify(token, secret);
+      const userLevel = payload.level as string;
+
+      const path = request.nextUrl.pathname;
+
+      // Protect /dashboard/liflet/* - Only ADMIN
+      if (path.startsWith("/dashboard/liflet") && userLevel !== "ADMIN") {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+
+      // Protect /dashboard/email - Only ADMIN
+      if (path.startsWith("/dashboard/email") && userLevel !== "ADMIN") {
+        return NextResponse.redirect(new URL("/dashboard", request.url));
+      }
+
       return NextResponse.next();
     } catch (error) {
       console.error("Token verification failed:", error);

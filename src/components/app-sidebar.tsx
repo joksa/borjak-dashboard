@@ -1,5 +1,7 @@
 "use client";
 
+import { useState, useEffect } from "react";
+
 import { usePathname } from "next/navigation";
 import {
   Home,
@@ -32,6 +34,7 @@ import {
   SidebarMenuSubItem,
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useAuthStore } from "@/store/useAuthStore";
 
 import {
   DropdownMenu,
@@ -140,6 +143,22 @@ const items = [
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const { user, isLoading, checkSession } = useAuthStore();
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
+  
+  const userLevel = user?.level;
+  const loading = isLoading;
+
+  // Filter items based on user level
+  const filteredItems = items.filter((item) => {
+    if (item.url.startsWith("/dashboard/liflet") || item.url === "/dashboard/email") {
+      return userLevel === "ADMIN";
+    }
+    return true;
+  });
 
   return (
     <Sidebar collapsible="icon">
@@ -164,7 +183,7 @@ export function AppSidebar() {
         <SidebarGroup>
           <SidebarGroupContent>
             <SidebarMenu>
-              {items.map((item) => {
+              {filteredItems.map((item) => {
                 // Check if this item is active
                 const isActive =
                   pathname === item.url ||
@@ -213,10 +232,10 @@ export function AppSidebar() {
           <ThemeToggle />
           <DropdownMenu>
             <DropdownMenuTrigger className="h-8 w-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center text-sm font-medium cursor-pointer hover:opacity-90 transition-opacity">
-              AD
+              {loading ? "..." : (userLevel === "ADMIN" ? "AD" : "US")}
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
-              <DropdownMenuLabel>Admin User</DropdownMenuLabel>
+              <DropdownMenuLabel>{loading ? "Loading..." : (userLevel === "ADMIN" ? "Admin User" : "User")}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={async () => {
