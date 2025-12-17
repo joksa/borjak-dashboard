@@ -183,3 +183,8 @@
 body {
   letter-spacing: var(--tracking-normal);
 }
+
+/* FIX TAILWIND V4 PORTAL BUG */
+html, body, *, *::before, *::after {
+  pointer-events: auto !important;
+}

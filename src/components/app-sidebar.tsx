@@ -19,6 +19,7 @@ import {
   Mail,
   Store,
   Sheet,
+  BatteryChargingIcon,
 } from "lucide-react";
 
 import {
@@ -83,6 +84,11 @@ const items = [
     title: "Spisak za Raf",
     url: "/dashboard/spisak_raf",
     icon: Sheet,
+  },
+   {
+    title: "Popisi Parcijalno",
+    url: "/dashboard/popisi_parcijalno",
+    icon: BatteryChargingIcon,
   },
   {
     title: "Email",
