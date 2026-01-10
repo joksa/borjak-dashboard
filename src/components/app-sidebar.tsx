@@ -20,6 +20,7 @@ import {
   Store,
   Sheet,
   BatteryChargingIcon,
+  User2,
 } from "lucide-react";
 
 import {
@@ -89,6 +90,11 @@ const items = [
     title: "Popisi Parcijalno",
     url: "/dashboard/popisi_parcijalno",
     icon: BatteryChargingIcon,
+  },
+   {
+    title: "Operateri",
+    url: "/dashboard/operateri",
+    icon: User2,
   },
   {
     title: "Email",
@@ -172,7 +178,7 @@ export function AppSidebar() {
 
   // Filter items based on user level
   const filteredItems = items.filter((item) => {
-    if (item.url.startsWith("/dashboard/liflet") || item.url === "/dashboard/email") {
+    if (item.url.startsWith("/dashboard/liflet") || item.url === "/dashboard/email"|| item.url === "/dashboard/operateri") {
       return userLevel === "ADMIN";
     }
     return true;

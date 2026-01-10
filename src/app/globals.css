@@ -188,3 +188,15 @@ body {
 html, body, *, *::before, *::after {
   pointer-events: auto !important;
 }
+
+/* GLOBAL INTERACTIVE CURSOR */
+button, 
+[role="button"],
+[role="menuitem"],
+[role="option"],
+[cmdk-item],
+.select-trigger,
+.cursor-pointer {
+  cursor: pointer !important;
+}
+
