@@ -89,7 +89,7 @@ export async function POST(request: Request) {
         dok_vreme: new Date(),
         dok_status: Number(dok_status) || 1,
         dok_opis: dok_opis, // Stores ID_Robna_Grupa
-        dok_radnik: '', // Optional
+        dok_radnik: 0, // Optional
         // dok_isvoce: 0 // default
       }
     });

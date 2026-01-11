@@ -7,12 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum Role {
-  USER
-  MANAGER
-  ADMIN
-}
-
 model artikli {
   Id_Artikal        Int              @id
   DESCRIPTION       String?          @db.VarChar(255)
@@ -123,11 +117,12 @@ model dok_zaglavlje {
   dok_status  Int           @db.TinyInt
   dok_obj1    String        @db.VarChar(3)
   dok_obj2    String?       @db.VarChar(3)
-  dok_radnik  String?       @db.VarChar(60)
+  dok_radnik  Int?
   dok_opis    String?       @db.Text
   dok_isvoce  Int?          @default(0) @db.TinyInt
   created_at  DateTime?     @default(now()) @db.Timestamp(0)
   updated_at  DateTime?     @default(now()) @db.DateTime(0)
+  temp        String?       @db.VarChar(1000)
   dok_detalji dok_detalji[]
 
   @@unique([dok_godina, dok_tip, dok_broj, dok_obj1], map: "uq_dok")
@@ -351,12 +346,80 @@ model cene_raf {
 }
 
 model spisak_raf {
-  id            Int      @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
   id_prodavnica Int?
   id_artikal    Int?
-  amount        Decimal? @default(0.00) @db.Decimal(15, 2)
-  artikli       artikli? @relation(fields: [id_artikal], references: [Id_Artikal], onDelete: NoAction, onUpdate: NoAction, map: "fk_spisak_raf_artikli")
+  amount        Decimal?  @default(0.00) @db.Decimal(15, 2)
+  created_at    DateTime? @default(now()) @db.DateTime(0)
+  artikli       artikli?  @relation(fields: [id_artikal], references: [Id_Artikal], onDelete: NoAction, onUpdate: NoAction, map: "fk_spisak_raf_artikli")
 
   @@index([id_artikal], map: "idx_spisak_raf_id_artikal")
   @@index([id_prodavnica], map: "idx_spisak_raf_id_prodavnica")
+}
+
+model fiskalni_detalji {
+  id_fd      Int      @id @default(autoincrement()) @db.UnsignedInt
+  id_fz      Int?     @db.UnsignedInt
+  id_artikal Int?
+  naziv      String?  @db.VarChar(200)
+  stopa      Decimal? @db.Decimal(5, 2)
+  kolicina   Decimal? @db.Decimal(15, 2)
+  cena       Decimal? @db.Decimal(15, 2)
+  iznos      Decimal? @db.Decimal(15, 2)
+  puna_cena  Decimal? @db.Decimal(15, 2)
+  rabat      Decimal? @db.Decimal(15, 2)
+
+  @@index([id_fz], map: "id_fz_idx")
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model fiskalni_temp {
+  id_fz         Int
+  id_user       Int
+  id_prodavnica Int
+
+  @@ignore
+}
+
+model fiskalni_zaglavlje {
+  id_fz         Int      @id @db.UnsignedInt
+  id_prodavnica Int?
+  kasa          Int?
+  datum         String?  @db.VarChar(15)
+  vreme         String?  @db.VarChar(15)
+  got           Decimal? @db.Decimal(15, 2)
+  kar           Decimal? @db.Decimal(15, 2)
+  cek           Decimal? @db.Decimal(15, 2)
+  virman        Decimal? @db.Decimal(15, 2)
+  vaucer        Decimal? @db.Decimal(15, 2)
+  instant       Decimal? @db.Decimal(15, 2)
+  drugo         Decimal? @db.Decimal(15, 2)
+  pfr           String?  @db.VarChar(45)
+}
+
+/// The underlying table does not contain a valid unique identifier and can therefore currently not be handled by Prisma Client.
+model lager {
+  id_prodavnica Int?
+  id_artikal    Int?
+  kolicina      Decimal? @db.Decimal(15, 3)
+
+  @@ignore
+}
+
+model lager_sync {
+  id_prodavnica Int       @id
+  zadnji_dnevni DateTime? @db.DateTime(0)
+  sinhronizovan DateTime? @db.DateTime(0)
+}
+
+model temp_masa {
+  id         Int     @id @default(autoincrement())
+  id_artikal Int
+  masa       Decimal @db.Decimal(10, 3)
+}
+
+enum Role {
+  USER
+  MANAGER
+  ADMIN
 }

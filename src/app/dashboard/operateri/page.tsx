@@ -386,9 +386,11 @@ export default function OperateriPage() {
                         <Input
                         id="op_lozinka"
                         maxLength={8}
+                        minLength={4}
+                        type="number"
                         value={formData.op_lozinka}
                         onChange={(e) => setFormData({ ...formData, op_lozinka: e.target.value })}
-                        className="col-span-3"
+                        className="col-span-3 spin-button-hidden"
                         />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">

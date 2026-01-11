@@ -10,7 +10,7 @@ export async function PUT(
 ) {
   try {
     const { id: idParam } = await params;
-    const id = parseInt(idParam);
+    const id = Number(idParam);
     const body = await request.json();
     const { op_ime_prezime, op_lozinka, op_aktivan, op_objekat } = body;
 
@@ -37,7 +37,32 @@ export async function DELETE(
 ) {
   try {
     const { id: idParam } = await params;
-    const id = parseInt(idParam);
+    const id = Number(idParam);
+
+    // Check if operator exists in dok_detalji
+    const detailExists = await prisma.dok_detalji.findFirst({
+      where: { dd_op_id: id },
+    });
+
+    if (detailExists) {
+      return NextResponse.json(
+        { error: "Operater se ne može obrisati jer postoje zapisi u detaljima dokumenata." },
+        { status: 400 }
+      );
+    }
+
+    // Check if operator exists in dok_zaglavlje
+    const headerExists = await prisma.dok_zaglavlje.findFirst({
+      where: { dok_radnik: id },
+    });
+
+    if (headerExists) {
+      return NextResponse.json(
+        { error: "Operater se ne može obrisati jer postoje zapisi u zaglavljima dokumenata." },
+        { status: 400 }
+      );
+    }
+
     await prisma.operateri.delete({
       where: { op_id: id },
     });
