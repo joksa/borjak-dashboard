@@ -16,14 +16,17 @@ export async function GET() {
         d.dok_status,
         d.dok_datum,
         d.dok_opis,
+        p.ID_Podgrupa,
+        p.Naziv as PodgrupaNaziv,
         r.ID_Robna_Grupa,
         r.Naziv as RobnaGrupaNaziv
       FROM dok_zaglavlje d
-      LEFT JOIN robne_grupe r ON d.dok_opis COLLATE utf8mb4_unicode_ci = CAST(r.ID_Robna_Grupa AS CHAR) COLLATE utf8mb4_unicode_ci
+      LEFT JOIN robne_grupe_podgrupe p ON d.dok_opis COLLATE utf8mb4_unicode_ci = CAST(p.ID_Podgrupa AS CHAR) COLLATE utf8mb4_unicode_ci
+      LEFT JOIN robne_grupe r ON p.ID_Robna_Grupa = r.ID_Robna_Grupa
       WHERE d.dok_tip = 'POPIS_PARCIJALNO'
       ORDER BY d.dok_status, d.dok_datum DESC
     `;
-    
+
     const serializedData = JSON.parse(JSON.stringify(data, (key, value) =>
       typeof value === 'bigint'
         ? value.toString()
@@ -48,7 +51,7 @@ export async function POST(request: Request) {
     const datum = new Date(dok_datum);
     const godina = datum.getFullYear().toString();
     const tip = 'POPIS_PARCIJALNO';
-    
+
     // Generate dok_broj format: dok_obj1-yyyymmddss
     const yyyy = datum.getFullYear().toString();
     const mm = (datum.getMonth() + 1).toString().padStart(2, '0');
@@ -78,7 +81,7 @@ export async function POST(request: Request) {
     // Insert
     // We cannot use prisma.create easily because we need to match the raw query logic potentially?
     // Actually prisma.dok_zaglavlje.create works fine for standard tables.
-    
+
     const newItem = await prisma.dok_zaglavlje.create({
       data: {
         dok_godina: godina,
@@ -88,7 +91,7 @@ export async function POST(request: Request) {
         dok_datum: datum,
         dok_vreme: new Date(),
         dok_status: Number(dok_status) || 1,
-        dok_opis: dok_opis, // Stores ID_Robna_Grupa
+        dok_opis: dok_opis, // Stores ID_Podgrupa
         dok_radnik: 0, // Optional
         // dok_isvoce: 0 // default
       }
@@ -104,6 +107,6 @@ export async function POST(request: Request) {
 
   } catch (error) {
     console.error("Error creating popisi_parcijalno:", error);
-     return NextResponse.json({ error: "Error creating data" }, { status: 500 });
+    return NextResponse.json({ error: "Error creating data" }, { status: 500 });
   }
 }

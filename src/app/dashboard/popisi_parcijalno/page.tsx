@@ -60,6 +60,12 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
+type Podgrupa = {
+  ID_Podgrupa: number;
+  ID_Robna_Grupa: number | null;
+  Naziv: string | null;
+};
+
 type PopisParcijalno = {
   dok_id: string;
   dok_godina: string;
@@ -68,7 +74,9 @@ type PopisParcijalno = {
   dok_obj1: string;
   dok_status: number;
   dok_datum: string;
-  dok_opis: string; // ID_Robna_Grupa
+  dok_opis: string; // ID_Podgrupa
+  ID_Podgrupa: number | null;
+  PodgrupaNaziv: string | null;
   ID_Robna_Grupa: number | null;
   RobnaGrupaNaziv: string | null;
 };
@@ -93,7 +101,9 @@ export default function PopisiParcijalnoPage() {
   const [popisi, setPopisi] = useState<PopisParcijalno[]>([]);
   const [loading, setLoading] = useState(true);
   const [robneGrupe, setRobneGrupe] = useState<RobnaGrupa[]>([]);
+  const [podgrupe, setPodgrupe] = useState<Podgrupa[]>([]);
   const [prodavnice, setProdavnice] = useState<Prodavnica[]>([]);
+  const [selectedGroupId, setSelectedGroupId] = useState<string>("");
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: "dok_datum",
     direction: "desc",
@@ -111,11 +121,12 @@ export default function PopisiParcijalnoPage() {
     dok_opis: "", // Selected robna grupa ID
     dok_status: "1",
   });
-  
+
   // Combobox open states
   const [openObjekat, setOpenObjekat] = useState(false);
   const [openRobnaGrupa, setOpenRobnaGrupa] = useState(false);
-  
+  const [openPodgrupa, setOpenPodgrupa] = useState(false);
+
   // Create separate open states for Edit modal to avoid conflicts if needed, 
   // currently we reuse the same form state but modal visibility separates them.
   // However, combobox open state might need to be specific if we have multiple. 
@@ -154,6 +165,20 @@ export default function PopisiParcijalnoPage() {
     }
   };
 
+  const loadPodgrupe = async (groupId: string) => {
+    try {
+      if (!groupId) {
+        setPodgrupe([]);
+        return;
+      }
+      const response = await fetch(`/api/podgrupe?groupId=${groupId}`);
+      const data = await response.json();
+      setPodgrupe(data.data || []);
+    } catch (error) {
+      console.error("Error loading podgrupe:", error);
+    }
+  };
+
   const loadProdavnice = async () => {
     try {
       // Fetch generous limit to simulate "all" for filtering
@@ -189,6 +214,8 @@ export default function PopisiParcijalnoPage() {
       dok_opis: "",
       dok_status: "1",
     });
+    setSelectedGroupId("");
+    setPodgrupe([]);
   };
 
   const handleCreate = async () => {
@@ -221,8 +248,8 @@ export default function PopisiParcijalnoPage() {
   const handleEdit = async () => {
     if (!editingPopis) return;
     if (!formData.dok_obj1 || !formData.dok_opis) {
-        toast.error("Please fill in all required fields");
-        return;
+      toast.error("Please fill in all required fields");
+      return;
     }
 
     try {
@@ -275,18 +302,27 @@ export default function PopisiParcijalnoPage() {
       dok_opis: item.dok_opis,
       dok_status: item.dok_status.toString(),
     });
+    if (item.ID_Robna_Grupa) {
+      const gId = item.ID_Robna_Grupa.toString();
+      setSelectedGroupId(gId);
+      loadPodgrupe(gId);
+    } else {
+      setSelectedGroupId("");
+      setPodgrupe([]);
+    }
     setIsEditModalOpen(true);
   };
 
   const sortedAndFilteredData = popisi
     .filter((item) => {
-        if (!searchTerm) return true;
-        const searchLower = searchTerm.toLowerCase();
-        return (
-            item.dok_obj1.toLowerCase().includes(searchLower) ||
-            (item.RobnaGrupaNaziv?.toLowerCase() || "").includes(searchLower) ||
-            item.dok_broj.includes(searchLower)
-        );
+      if (!searchTerm) return true;
+      const searchLower = searchTerm.toLowerCase();
+      return (
+        item.dok_obj1.toLowerCase().includes(searchLower) ||
+        (item.RobnaGrupaNaziv?.toLowerCase() || "").includes(searchLower) ||
+        (item.PodgrupaNaziv?.toLowerCase() || "").includes(searchLower) ||
+        item.dok_broj.includes(searchLower)
+      );
     })
     .sort((a, b) => {
       const aValue = a[sortConfig.key as keyof PopisParcijalno];
@@ -309,7 +345,7 @@ export default function PopisiParcijalnoPage() {
   // Note: We need to handle `open` state carefully. 
   // Since we have multiple inputs, we shouldn't share single `open` state if both are visible, 
   // but they are in different fields.
-  
+
   return (
     <div className="flex flex-col gap-6 w-full">
       <div className="w-full">
@@ -317,138 +353,187 @@ export default function PopisiParcijalnoPage() {
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Popisi Parcijalno</CardTitle>
             <div className="flex items-center gap-2">
-                 <div className="relative">
-                    <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Pretraži..."
-                      value={searchTerm}
-                      onChange={(e) => setSearchTerm(e.target.value)}
-                      className="pl-8 w-64"
-                    />
-                  </div>
-                <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Pretraži..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8 w-64"
+                />
+              </div>
+              <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
                 <DialogTrigger asChild>
-                    <Button onClick={resetForm}>
+                  <Button onClick={resetForm}>
                     <Plus className="w-4 h-4 mr-2" />
                     Novi Popis
-                    </Button>
+                  </Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-[500px]">
-                    <DialogHeader>
+                  <DialogHeader>
                     <DialogTitle>Dodaj Novi Popis</DialogTitle>
                     <DialogDescription>
-                        Kreiraj novi parcijalni popis.
+                      Kreiraj novi parcijalni popis.
                     </DialogDescription>
-                    </DialogHeader>
-                    <div className="grid gap-4 py-4">
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <label htmlFor="dok_datum" className="text-right">Datum</label>
-                        <Input
+                      <label htmlFor="dok_datum" className="text-right">Datum</label>
+                      <Input
                         id="dok_datum"
                         type="date"
                         value={formData.dok_datum}
                         onChange={(e) => setFormData({ ...formData, dok_datum: e.target.value })}
                         className="col-span-3"
-                        />
+                      />
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <label htmlFor="dok_obj1" className="text-right">Objekat</label>
-                        <Popover open={openObjekat} onOpenChange={setOpenObjekat}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              aria-expanded={openObjekat}
-                              className="col-span-3 justify-between"
-                            >
-                              {formData.dok_obj1
-                                ? prodavnice.find((store) => (store.Sifra === formData.dok_obj1 || store.ID_Prodavnica.toString() === formData.dok_obj1))?.Naziv || formData.dok_obj1
-                                : "Izaberi objekat..."}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0">
-                            <Command>
-                              <CommandInput placeholder="Pretraži prodavnice..." />
-                              <CommandList>
-                                <CommandEmpty>Nema rezultata.</CommandEmpty>
-                                <CommandGroup>
-                                  {prodavnice.map((store) => (
-                                    <CommandItem
-                                      key={store.ID_Prodavnica}
-                                      value={`${store.Naziv} ${store.Sifra || store.ID_Prodavnica}`} // searchable text
-                                      onSelect={(currentValue) => {
-                                        setFormData({...formData, dok_obj1: store.Sifra || store.ID_Prodavnica.toString() });
-                                        setOpenObjekat(false);
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          formData.dok_obj1 === (store.Sifra || store.ID_Prodavnica.toString()) ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {store.Naziv} ({store.Sifra || store.ID_Prodavnica})
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                      <label htmlFor="dok_obj1" className="text-right">Objekat</label>
+                      <Popover open={openObjekat} onOpenChange={setOpenObjekat}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openObjekat}
+                            className="col-span-3 justify-between"
+                          >
+                            {formData.dok_obj1
+                              ? prodavnice.find((store) => (store.Sifra === formData.dok_obj1 || store.ID_Prodavnica.toString() === formData.dok_obj1))?.Naziv || formData.dok_obj1
+                              : "Izaberi objekat..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Pretraži prodavnice..." />
+                            <CommandList>
+                              <CommandEmpty>Nema rezultata.</CommandEmpty>
+                              <CommandGroup>
+                                {prodavnice.map((store) => (
+                                  <CommandItem
+                                    key={store.ID_Prodavnica}
+                                    value={`${store.Naziv} ${store.Sifra || store.ID_Prodavnica}`} // searchable text
+                                    onSelect={(currentValue) => {
+                                      setFormData({ ...formData, dok_obj1: store.Sifra || store.ID_Prodavnica.toString() });
+                                      setOpenObjekat(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        formData.dok_obj1 === (store.Sifra || store.ID_Prodavnica.toString()) ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {store.Naziv} ({store.Sifra || store.ID_Prodavnica})
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div className="grid grid-cols-4 items-center gap-4">
-                        <label htmlFor="dok_opis" className="text-right">Robna Grupa</label>
-                        <Popover open={openRobnaGrupa} onOpenChange={setOpenRobnaGrupa}>
-                          <PopoverTrigger asChild>
-                            <Button
-                              variant="outline"
-                              role="combobox"
-                              aria-expanded={openRobnaGrupa}
-                              className="col-span-3 justify-between"
-                            >
-                              {formData.dok_opis
-                                ? robneGrupe.find((rg) => rg.ID_Robna_Grupa.toString() === formData.dok_opis)?.Naziv || formData.dok_opis
-                                : "Izaberi grupu..."}
-                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                          </PopoverTrigger>
-                          <PopoverContent className="w-[300px] p-0">
-                            <Command>
-                              <CommandInput placeholder="Pretraži grupe..." />
-                              <CommandList>
-                                <CommandEmpty>Nema rezultata.</CommandEmpty>
-                                <CommandGroup>
-                                  {robneGrupe.map((rg) => (
-                                    <CommandItem
-                                      key={rg.ID_Robna_Grupa}
-                                      value={`${rg.Naziv} ${rg.ID_Robna_Grupa}`} // searchable text
-                                      onSelect={(currentValue) => {
-                                        setFormData({...formData, dok_opis: rg.ID_Robna_Grupa.toString() });
-                                        setOpenRobnaGrupa(false);
-                                      }}
-                                    >
-                                      <Check
-                                        className={cn(
-                                          "mr-2 h-4 w-4",
-                                          formData.dok_opis === rg.ID_Robna_Grupa.toString() ? "opacity-100" : "opacity-0"
-                                        )}
-                                      />
-                                      {rg.Naziv} ({rg.ID_Robna_Grupa})
-                                    </CommandItem>
-                                  ))}
-                                </CommandGroup>
-                              </CommandList>
-                            </Command>
-                          </PopoverContent>
-                        </Popover>
+                      <label htmlFor="dok_grupa" className="text-right">Robna Grupa</label>
+                      <Popover open={openRobnaGrupa} onOpenChange={setOpenRobnaGrupa}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            aria-expanded={openRobnaGrupa}
+                            className="col-span-3 justify-between"
+                          >
+                            {selectedGroupId
+                              ? robneGrupe.find((rg) => rg.ID_Robna_Grupa.toString() === selectedGroupId)?.Naziv || selectedGroupId
+                              : "Izaberi grupu..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Pretraži grupe..." />
+                            <CommandList>
+                              <CommandEmpty>Nema rezultata.</CommandEmpty>
+                              <CommandGroup>
+                                {robneGrupe.map((rg) => (
+                                  <CommandItem
+                                    key={rg.ID_Robna_Grupa}
+                                    value={`${rg.Naziv} ${rg.ID_Robna_Grupa}`} // searchable text
+                                    onSelect={(currentValue) => {
+                                      setSelectedGroupId(rg.ID_Robna_Grupa.toString());
+                                      setFormData({ ...formData, dok_opis: "" }); // Reset podgrupa
+                                      loadPodgrupe(rg.ID_Robna_Grupa.toString());
+                                      setOpenRobnaGrupa(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        selectedGroupId === rg.ID_Robna_Grupa.toString() ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {rg.Naziv} ({rg.ID_Robna_Grupa})
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <label htmlFor="dok_opis" className="text-right">Podgrupa</label>
+                      <Popover open={openPodgrupa} onOpenChange={setOpenPodgrupa}>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            role="combobox"
+                            disabled={!selectedGroupId}
+                            aria-expanded={openPodgrupa}
+                            className="col-span-3 justify-between"
+                          >
+                            {formData.dok_opis
+                              ? podgrupe.find((p) => p.ID_Podgrupa.toString() === formData.dok_opis)?.Naziv || formData.dok_opis
+                              : "Izaberi podgrupu..."}
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-[300px] p-0">
+                          <Command>
+                            <CommandInput placeholder="Pretraži podgrupe..." />
+                            <CommandList>
+                              <CommandEmpty>Nema rezultata.</CommandEmpty>
+                              <CommandGroup>
+                                {podgrupe.map((p) => (
+                                  <CommandItem
+                                    key={p.ID_Podgrupa}
+                                    value={`${p.Naziv} ${p.ID_Podgrupa}`} // searchable text
+                                    onSelect={(currentValue) => {
+                                      setFormData({ ...formData, dok_opis: p.ID_Podgrupa.toString() });
+                                      setOpenPodgrupa(false);
+                                    }}
+                                  >
+                                    <Check
+                                      className={cn(
+                                        "mr-2 h-4 w-4",
+                                        formData.dok_opis === p.ID_Podgrupa.toString() ? "opacity-100" : "opacity-0"
+                                      )}
+                                    />
+                                    {p.Naziv} ({p.ID_Podgrupa})
+                                  </CommandItem>
+                                ))}
+                              </CommandGroup>
+                            </CommandList>
+                          </Command>
+                        </PopoverContent>
+                      </Popover>
                     </div>
-                    <DialogFooter>
+                  </div>
+                  <DialogFooter>
                     <Button onClick={handleCreate}>Sačuvaj</Button>
-                    </DialogFooter>
+                  </DialogFooter>
                 </DialogContent>
-                </Dialog>
+              </Dialog>
             </div>
           </CardHeader>
           <CardContent>
@@ -463,15 +548,15 @@ export default function PopisiParcijalnoPage() {
                       </div>
                     </th>
                     <th className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted" onClick={() => handleSort("dok_datum")}>
-                       <div className="flex items-center space-x-1">
+                      <div className="flex items-center space-x-1">
                         <span>Datum</span>
                         {getSortIcon("dok_datum")}
                       </div>
                     </th>
                     <th className="border border-border px-4 py-2 text-left">Objekat</th>
-                    <th className="border border-border px-4 py-2 text-left">Robna Grupa</th>
+                    <th className="border border-border px-4 py-2 text-left">Robna Grupa / Podgrupa</th>
                     <th className="border border-border px-4 py-2 text-left cursor-pointer hover:bg-muted" onClick={() => handleSort("dok_status")}>
-                        <div className="flex items-center space-x-1">
+                      <div className="flex items-center space-x-1">
                         <span>Status</span>
                         {getSortIcon("dok_status")}
                       </div>
@@ -499,21 +584,21 @@ export default function PopisiParcijalnoPage() {
                         <td className="border border-border px-4 py-2">
                           {new Date(item.dok_datum).toLocaleDateString("sr-RS")}
                         </td>
-                            <td className="border border-border px-4 py-2">{item.dok_obj1} { prodavnice.find(p => ""+p.ID_Prodavnica === item.dok_obj1)?.Naziv}</td>
+                        <td className="border border-border px-4 py-2">{item.dok_obj1} {prodavnice.find(p => "" + p.ID_Prodavnica === item.dok_obj1)?.Naziv}</td>
                         <td className="border border-border px-4 py-2">
-                          {item.RobnaGrupaNaziv} <span className="text-muted-foreground text-sm">({item.dok_opis})</span>
+                          {item.RobnaGrupaNaziv} / {item.PodgrupaNaziv} <span className="text-muted-foreground text-sm">({item.dok_opis})</span>
                         </td>
                         <td className="border border-border px-4 py-2">
-                           {item.dok_status === 1 && <Badge variant="secondary">U toku</Badge>}
-                           {item.dok_status === 2 && <Badge variant="default" className="bg-green-600 hover:bg-green-700">Završeno</Badge>}
+                          {item.dok_status === 1 && <Badge variant="secondary">U toku</Badge>}
+                          {item.dok_status === 2 && <Badge variant="default" className="bg-green-600 hover:bg-green-700">Završeno</Badge>}
                         </td>
                         <td className="border border-border px-4 py-2">
-                           <div className="flex space-x-1">
-                            <Button 
-                                variant="outline" 
-                                size="sm" 
-                                onClick={() => openEditModal(item)}
-                                disabled={item.dok_status === 2}
+                          <div className="flex space-x-1">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => openEditModal(item)}
+                              disabled={item.dok_status === 2}
                             >
                               <Edit className="w-4 h-4" />
                             </Button>
@@ -550,140 +635,189 @@ export default function PopisiParcijalnoPage() {
         </Card>
       </div>
 
-       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="max-w-[500px]">
-            <DialogHeader>
+          <DialogHeader>
             <DialogTitle>Izmeni Popis</DialogTitle>
             <DialogDescription>
-                Izmeni podatke o popisu.
+              Izmeni podatke o popisu.
             </DialogDescription>
-            </DialogHeader>
-            <div className="grid gap-4 py-4">
-             <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="edit_datum" className="text-right">Datum</label>
-                <Input
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="edit_datum" className="text-right">Datum</label>
+              <Input
                 id="edit_datum"
                 type="date"
                 value={formData.dok_datum}
                 onChange={(e) => setFormData({ ...formData, dok_datum: e.target.value })}
                 className="col-span-3"
-                />
+              />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="edit_obj1" className="text-right">Objekat</label>
-                <Popover open={openObjekat} onOpenChange={setOpenObjekat}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={openObjekat}
-                      className="col-span-3 justify-between"
-                    >
-                      {formData.dok_obj1
-                        ? prodavnice.find((store) => (store.Sifra === formData.dok_obj1 || store.ID_Prodavnica.toString() === formData.dok_obj1))?.Naziv || formData.dok_obj1
-                        : "Izaberi objekat..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Pretraži prodavnice..." />
-                      <CommandList>
-                        <CommandEmpty>Nema rezultata.</CommandEmpty>
-                        <CommandGroup>
-                          {prodavnice.map((store) => (
-                            <CommandItem
-                              key={store.ID_Prodavnica}
-                              value={`${store.Naziv} ${store.Sifra || store.ID_Prodavnica}`} // searchable text
-                              onSelect={(currentValue) => {
-                                setFormData({...formData, dok_obj1: store.Sifra || store.ID_Prodavnica.toString() });
-                                setOpenObjekat(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  formData.dok_obj1 === (store.Sifra || store.ID_Prodavnica.toString()) ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {store.Naziv} ({store.Sifra || store.ID_Prodavnica})
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+              <label htmlFor="edit_obj1" className="text-right">Objekat</label>
+              <Popover open={openObjekat} onOpenChange={setOpenObjekat}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openObjekat}
+                    className="col-span-3 justify-between"
+                  >
+                    {formData.dok_obj1
+                      ? prodavnice.find((store) => (store.Sifra === formData.dok_obj1 || store.ID_Prodavnica.toString() === formData.dok_obj1))?.Naziv || formData.dok_obj1
+                      : "Izaberi objekat..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Pretraži prodavnice..." />
+                    <CommandList>
+                      <CommandEmpty>Nema rezultata.</CommandEmpty>
+                      <CommandGroup>
+                        {prodavnice.map((store) => (
+                          <CommandItem
+                            key={store.ID_Prodavnica}
+                            value={`${store.Naziv} ${store.Sifra || store.ID_Prodavnica}`} // searchable text
+                            onSelect={(currentValue) => {
+                              setFormData({ ...formData, dok_obj1: store.Sifra || store.ID_Prodavnica.toString() });
+                              setOpenObjekat(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.dok_obj1 === (store.Sifra || store.ID_Prodavnica.toString()) ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {store.Naziv} ({store.Sifra || store.ID_Prodavnica})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="edit_opis" className="text-right">Robna Grupa</label>
-                <Popover open={openRobnaGrupa} onOpenChange={setOpenRobnaGrupa}>
-                  <PopoverTrigger asChild>
-                    <Button
-                      variant="outline"
-                      role="combobox"
-                      aria-expanded={openRobnaGrupa}
-                      className="col-span-3 justify-between"
-                    >
-                      {formData.dok_opis
-                        ? robneGrupe.find((rg) => rg.ID_Robna_Grupa.toString() === formData.dok_opis)?.Naziv || formData.dok_opis
-                        : "Izaberi grupu..."}
-                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-[300px] p-0">
-                    <Command>
-                      <CommandInput placeholder="Pretraži grupe..." />
-                      <CommandList>
-                        <CommandEmpty>Nema rezultata.</CommandEmpty>
-                        <CommandGroup>
-                          {robneGrupe.map((rg) => (
-                            <CommandItem
-                              key={rg.ID_Robna_Grupa}
-                              value={`${rg.Naziv} ${rg.ID_Robna_Grupa}`} // searchable text
-                              onSelect={(currentValue) => {
-                                setFormData({...formData, dok_opis: rg.ID_Robna_Grupa.toString() });
-                                setOpenRobnaGrupa(false);
-                              }}
-                            >
-                              <Check
-                                className={cn(
-                                  "mr-2 h-4 w-4",
-                                  formData.dok_opis === rg.ID_Robna_Grupa.toString() ? "opacity-100" : "opacity-0"
-                                )}
-                              />
-                              {rg.Naziv} ({rg.ID_Robna_Grupa})
-                            </CommandItem>
-                          ))}
-                        </CommandGroup>
-                      </CommandList>
-                    </Command>
-                  </PopoverContent>
-                </Popover>
+              <label htmlFor="edit_grupa" className="text-right">Robna Grupa</label>
+              <Popover open={openRobnaGrupa} onOpenChange={setOpenRobnaGrupa}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={openRobnaGrupa}
+                    className="col-span-3 justify-between"
+                  >
+                    {selectedGroupId
+                      ? robneGrupe.find((rg) => rg.ID_Robna_Grupa.toString() === selectedGroupId)?.Naziv || selectedGroupId
+                      : "Izaberi grupu..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Pretraži grupe..." />
+                    <CommandList>
+                      <CommandEmpty>Nema rezultata.</CommandEmpty>
+                      <CommandGroup>
+                        {robneGrupe.map((rg) => (
+                          <CommandItem
+                            key={rg.ID_Robna_Grupa}
+                            value={`${rg.Naziv} ${rg.ID_Robna_Grupa}`} // searchable text
+                            onSelect={(currentValue) => {
+                              setSelectedGroupId(rg.ID_Robna_Grupa.toString());
+                              setFormData({ ...formData, dok_opis: "" }); // Reset podgrupa
+                              loadPodgrupe(rg.ID_Robna_Grupa.toString());
+                              setOpenRobnaGrupa(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedGroupId === rg.ID_Robna_Grupa.toString() ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {rg.Naziv} ({rg.ID_Robna_Grupa})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
-             <div className="grid grid-cols-4 items-center gap-4">
-                <label htmlFor="edit_status" className="text-right">Status</label>
-                <div className="col-span-3">
-                    <Select 
-                        value={formData.dok_status} 
-                        onValueChange={(val) => setFormData({ ...formData, dok_status: val })}
-                    >
-                        <SelectTrigger>
-                            <SelectValue placeholder="Status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                             <SelectItem value="1">U toku</SelectItem>
-                             <SelectItem value="2">Završeno</SelectItem>
-                        </SelectContent>
-                    </Select>
-                </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="edit_podgrupa" className="text-right">Podgrupa</label>
+              <Popover open={openPodgrupa} onOpenChange={setOpenPodgrupa}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    disabled={!selectedGroupId}
+                    aria-expanded={openPodgrupa}
+                    className="col-span-3 justify-between"
+                  >
+                    {formData.dok_opis
+                      ? podgrupe.find((p) => p.ID_Podgrupa.toString() === formData.dok_opis)?.Naziv || formData.dok_opis
+                      : "Izaberi podgrupu..."}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[300px] p-0">
+                  <Command>
+                    <CommandInput placeholder="Pretraži podgrupe..." />
+                    <CommandList>
+                      <CommandEmpty>Nema rezultata.</CommandEmpty>
+                      <CommandGroup>
+                        {podgrupe.map((p) => (
+                          <CommandItem
+                            key={p.ID_Podgrupa}
+                            value={`${p.Naziv} ${p.ID_Podgrupa}`} // searchable text
+                            onSelect={(currentValue) => {
+                              setFormData({ ...formData, dok_opis: p.ID_Podgrupa.toString() });
+                              setOpenPodgrupa(false);
+                            }}
+                          >
+                            <Check
+                              className={cn(
+                                "mr-2 h-4 w-4",
+                                formData.dok_opis === p.ID_Podgrupa.toString() ? "opacity-100" : "opacity-0"
+                              )}
+                            />
+                            {p.Naziv} ({p.ID_Podgrupa})
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <label htmlFor="edit_status" className="text-right">Status</label>
+              <div className="col-span-3">
+                <Select
+                  value={formData.dok_status}
+                  onValueChange={(val) => setFormData({ ...formData, dok_status: val })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="1">U toku</SelectItem>
+                    <SelectItem value="2">Završeno</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
-            <DialogFooter>
+          </div>
+          <DialogFooter>
             <Button onClick={handleEdit}>Sačuvaj Izmene</Button>
-            </DialogFooter>
+          </DialogFooter>
         </DialogContent>
-        </Dialog>
+      </Dialog>
     </div>
   );
 }
