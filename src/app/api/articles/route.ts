@@ -24,14 +24,22 @@ export async function GET(request: NextRequest) {
       orConditions.push(
         searchWords.length === 1
           ? { DESCRIPTION: { contains: searchWords[0] } }
-          : { AND: searchWords.map((word) => ({ DESCRIPTION: { contains: word } })) }
+          : {
+              AND: searchWords.map((word) => ({
+                DESCRIPTION: { contains: word },
+              })),
+            },
       );
 
       // BAR_CODE must contain all words
       orConditions.push(
         searchWords.length === 1
           ? { BAR_CODE: { contains: searchWords[0] } }
-          : { AND: searchWords.map((word) => ({ BAR_CODE: { contains: word } })) }
+          : {
+              AND: searchWords.map((word) => ({
+                BAR_CODE: { contains: word },
+              })),
+            },
       );
 
       // Id_Artikal must match (exact) - only if single word and is a valid number
@@ -43,6 +51,11 @@ export async function GET(request: NextRequest) {
       }
 
       whereCondition = { OR: orConditions };
+    }
+
+    const normativi = searchParams.get("normativi") === "1";
+    if (normativi) {
+      whereCondition = { ...whereCondition }; //, DEPARTMENT: "9"
     }
 
     const articles = await prisma.artikli.findMany({
@@ -90,7 +103,7 @@ export async function GET(request: NextRequest) {
     console.error("Error searching articles:", error);
     return NextResponse.json(
       { error: "Failed to search articles" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

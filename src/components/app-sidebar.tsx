@@ -91,6 +91,11 @@ const items = [
     url: "/dashboard/popisi_parcijalno",
     icon: BatteryChargingIcon,
   },
+  {
+    title: "Normativi",
+    url: "/dashboard/normativi",
+    icon: FileText,
+  },
    {
     title: "Operateri",
     url: "/dashboard/operateri",

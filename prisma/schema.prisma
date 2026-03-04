@@ -62,9 +62,11 @@ model artikli {
   ID_Podgrupa       Int?
   ID_Raster         Int?
   Pak_Bar_Code      String?          @db.VarChar(45)
-  cene_raf          cene_raf[]
-  liflet_detalji    liflet_detalji[]
-  spisak_raf        spisak_raf[]
+  cene_raf              cene_raf[]
+  liflet_detalji        liflet_detalji[]
+  spisak_raf            spisak_raf[]
+  normativi_zaglavlje   normativi_zaglavlje[]
+  normativi_detalji     normativi_detalji[]
 }
 
 model bar_code {
@@ -416,6 +418,33 @@ model temp_masa {
   id         Int     @id @default(autoincrement())
   id_artikal Int
   masa       Decimal @db.Decimal(10, 3)
+}
+
+model normativi_zaglavlje {
+  id                 Int                  @id @default(autoincrement())
+  broj               String               @db.VarChar(50)
+  datum              DateTime             @db.Date
+  vreme              DateTime             @db.Time(0)
+  id_artikal         Int
+  created_at         DateTime?            @default(now()) @db.Timestamp(0)
+  updated_at         DateTime?            @default(now()) @db.DateTime(0)
+  artikli            artikli              @relation(fields: [id_artikal], references: [Id_Artikal], onDelete: NoAction, onUpdate: NoAction, map: "fk_normativi_z_artikal")
+  normativi_detalji  normativi_detalji[]
+
+  @@index([id_artikal], map: "idx_normativi_z_artikal")
+}
+
+model normativi_detalji {
+  id                    Int                  @id @default(autoincrement())
+  normativ_id           Int
+  id_artikal            Int
+  kolicina              Decimal              @default(0.000000) @db.Decimal(15, 6)
+  created_at            DateTime?            @default(now()) @db.Timestamp(0)
+  normativi_zaglavlje   normativi_zaglavlje  @relation(fields: [normativ_id], references: [id], onDelete: Cascade, map: "fk_normativi_d_zaglavlje")
+  artikli               artikli              @relation(fields: [id_artikal], references: [Id_Artikal], onDelete: NoAction, onUpdate: NoAction, map: "fk_normativi_d_artikal")
+
+  @@index([normativ_id], map: "idx_normativi_d_normativ")
+  @@index([id_artikal], map: "idx_normativi_d_artikal")
 }
 
 enum Role {
