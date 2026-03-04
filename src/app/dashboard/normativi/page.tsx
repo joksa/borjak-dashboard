@@ -899,7 +899,7 @@ export default function NormativiPage() {
                             className="border-t border-border hover:bg-muted/30"
                           >
                             <td className="px-3 py-1">
-                              {d.artikli?.DESCRIPTION}
+                              <span className="text-muted-foreground text-xs mr-1">[{d.id_artikal}]</span>{d.artikli?.DESCRIPTION}
                             </td>
                             <td className="px-3 py-1 text-right font-mono">
                               {parseFloat(d.kolicina).toFixed(6)}
