@@ -4,7 +4,7 @@ import { join } from "path";
 import { existsSync } from "fs";
 
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ filename: string }> }
 ) {
   try {
@@ -51,7 +51,7 @@ export async function GET(
     return new NextResponse(fileBuffer, {
       headers: {
         'Content-Type': contentType,
-        'Cache-Control': 'public, max-age=31536000, immutable'
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
       }
     });
 

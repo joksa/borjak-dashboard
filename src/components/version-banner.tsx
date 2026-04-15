@@ -69,7 +69,7 @@ export function VersionBanner() {
           cursor: "pointer",
         }}
       >
-        Osvježi
+        Osveži
       </button>
       <button
         onClick={() => setShow(false)}
