@@ -89,7 +89,7 @@ export default function LifletPage() {
   const [lifletZaglavlje, setLifletZaglavlje] = useState<LifletZaglavlje[]>([]);
   const [lifletDetalji, setLifletDetalji] = useState<LifletDetalji[]>([]);
   const [selectedLiflet, setSelectedLiflet] = useState<LifletZaglavlje | null>(
-    null
+    null,
   );
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -145,10 +145,10 @@ export default function LifletPage() {
   const [isShareModalOpen, setIsShareModalOpen] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [editingLiflet, setEditingLiflet] = useState<LifletZaglavlje | null>(
-    null
+    null,
   );
   const [editingDetail, setEditingDetail] = useState<LifletDetalji | null>(
-    null
+    null,
   );
 
   // Form states
@@ -196,7 +196,7 @@ export default function LifletPage() {
       setLoading(true);
       // Load all data for proper pagination
       const response = await fetch(
-        `/api/liflet/zaglavlje?sort=${sortConfig.key}&order=${sortConfig.direction}&limit=10000`
+        `/api/liflet/zaglavlje?sort=${sortConfig.key}&order=${sortConfig.direction}&limit=10000`,
       );
       const data = await response.json();
       setLifletZaglavlje(data.data || []);
@@ -260,7 +260,7 @@ export default function LifletPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
-        }
+        },
       );
 
       if (response.ok) {
@@ -375,7 +375,7 @@ export default function LifletPage() {
         const matchesSearch =
           !searchTerm ||
           detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
-            searchTerm.toLowerCase()
+            searchTerm.toLowerCase(),
           ) ||
           detalj.artikli?.BAR_CODE?.includes(searchTerm);
 
@@ -408,17 +408,17 @@ export default function LifletPage() {
 
           <div style="margin-bottom: 20px; text-align: center;">
             <h2 style="margin: 0; font-size: 20px; color: #333;">Liflet: ${new Date(
-              selectedLiflet.datum_od
+              selectedLiflet.datum_od,
             ).toLocaleDateString("sr-RS")} - ${new Date(
-        selectedLiflet.datum_do
-      ).toLocaleDateString("sr-RS")}</h2>
+              selectedLiflet.datum_do,
+            ).toLocaleDateString("sr-RS")}</h2>
             ${
               clientFilter !== "all"
                 ? `<p style="margin: 10px 0; font-size: 14px; color: #666;">Filtriraj po Klijentu: ${clientFilter}</p>`
                 : ""
             }
             <p style="margin: 5px 0; font-size: 12px; color: #888;">Generisano: ${new Date().toLocaleDateString(
-              "sr-RS"
+              "sr-RS",
             )}</p>
           </div>
 
@@ -467,7 +467,7 @@ export default function LifletPage() {
                       : ""
                   }</td>
                 </tr>
-              `
+              `,
                 )
                 .join("")}
             </tbody>
@@ -554,7 +554,11 @@ export default function LifletPage() {
       return;
     }
 
-    if (!shareFormData.to.trim() || !shareFormData.subject.trim() || !shareFormData.message.trim()) {
+    if (
+      !shareFormData.to.trim() ||
+      !shareFormData.subject.trim() ||
+      !shareFormData.message.trim()
+    ) {
       toast.error("Molimo popunite sva polja");
       return;
     }
@@ -574,7 +578,7 @@ export default function LifletPage() {
         const matchesSearch =
           !searchTerm ||
           detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
-            searchTerm.toLowerCase()
+            searchTerm.toLowerCase(),
           ) ||
           detalj.artikli?.BAR_CODE?.includes(searchTerm);
 
@@ -603,7 +607,7 @@ export default function LifletPage() {
         "PIB",
         "Redovna cena",
         "Akcijska cena",
-        "Slika"
+        "Slika",
       ].join("\t");
 
       const rows = filteredData.map((detalj) => {
@@ -616,7 +620,7 @@ export default function LifletPage() {
           detalj.klijenti?.PIB || "",
           detalj.cena_redovna ? Number(detalj.cena_redovna).toFixed(2) : "",
           detalj.cena_akcija ? Number(detalj.cena_akcija).toFixed(2) : "",
-          detalj.image || ""
+          detalj.image || "",
         ].join("\t");
       });
 
@@ -645,12 +649,12 @@ export default function LifletPage() {
 
       // Generate ZIP file
       const zipBlob = await zip.generateAsync({ type: "blob" });
-      
+
       // Create File object from blob
       const zipFile = new File(
         [zipBlob],
-        `liflet_${selectedLiflet.id}_${new Date().toISOString().split('T')[0]}.zip`,
-        { type: "application/zip" }
+        `liflet_${selectedLiflet.id}_${new Date().toISOString().split("T")[0]}.zip`,
+        { type: "application/zip" },
       );
 
       // Send email with attachment
@@ -709,7 +713,7 @@ export default function LifletPage() {
       const matchesSearch =
         !searchTerm ||
         detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
-          searchTerm.toLowerCase()
+          searchTerm.toLowerCase(),
         ) ||
         detalj.artikli?.BAR_CODE?.includes(searchTerm);
 
@@ -735,7 +739,7 @@ export default function LifletPage() {
     const filtered = availableProdavnice.filter(
       (prodavnica) =>
         prodavnica.Naziv?.toLowerCase().includes(search.toLowerCase()) ||
-        prodavnica.Sifra?.toLowerCase().includes(search.toLowerCase())
+        prodavnica.Sifra?.toLowerCase().includes(search.toLowerCase()),
     );
     setFilteredProdavnice(filtered);
   };
@@ -744,7 +748,7 @@ export default function LifletPage() {
     setSelectedProdavnice((prev) =>
       prev.includes(id)
         ? prev.filter((storeId) => storeId !== id)
-        : [...prev, id]
+        : [...prev, id],
     );
   };
 
@@ -768,7 +772,7 @@ export default function LifletPage() {
         const matchesSearch =
           !searchTerm ||
           detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
-            searchTerm.toLowerCase()
+            searchTerm.toLowerCase(),
           ) ||
           detalj.artikli?.BAR_CODE?.includes(searchTerm);
 
@@ -844,7 +848,7 @@ export default function LifletPage() {
 
     try {
       const response = await fetch(
-        `/api/articles?search=${encodeURIComponent(search)}&limit=20`
+        `/api/articles?search=${encodeURIComponent(search)}&limit=20`,
       );
       const data = await response.json();
       setSearchedArticles(data.data || []);
@@ -862,7 +866,7 @@ export default function LifletPage() {
 
     try {
       const response = await fetch(
-        `/api/clients?search=${encodeURIComponent(search)}&limit=20`
+        `/api/clients?search=${encodeURIComponent(search)}&limit=20`,
       );
       const data = await response.json();
       setSearchedClients(data.data || []);
@@ -953,7 +957,7 @@ export default function LifletPage() {
         } else {
           // Upload failed, but continue without updating image
           toast.warning(
-            "Image upload failed, but continuing without image update"
+            "Image upload failed, but continuing without image update",
           );
         }
       } else if (detailFormData.existingImage === null) {
@@ -1030,26 +1034,28 @@ export default function LifletPage() {
     setArticleSearchTerm(
       detail.artikli
         ? `${detail.artikli.DESCRIPTION} (${detail.artikli.BAR_CODE})`
-        : ""
+        : "",
     );
     setClientSearchTerm(
-      detail.klijenti ? `${detail.klijenti.Naziv} (${detail.klijenti.PIB})` : ""
+      detail.klijenti
+        ? `${detail.klijenti.Naziv} (${detail.klijenti.PIB})`
+        : "",
     );
     setIsEditDetailModalOpen(true);
   };
 
   const openEditModal = (liflet: LifletZaglavlje) => {
     setEditingLiflet(liflet);
-    
+
     // Format dates without timezone conversion to avoid date shifting
     const formatDateForInput = (date: Date) => {
       const d = new Date(date);
       const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
+      const month = String(d.getMonth() + 1).padStart(2, "0");
+      const day = String(d.getDate()).padStart(2, "0");
       return `${year}-${month}-${day}`;
     };
-    
+
     setFormData({
       datum_od: formatDateForInput(liflet.datum_od),
       datum_do: formatDateForInput(liflet.datum_do),
@@ -1313,7 +1319,7 @@ export default function LifletPage() {
                     Prikazano {(effectiveCurrentPage - 1) * itemsPerPage + 1} do{" "}
                     {Math.min(
                       effectiveCurrentPage * itemsPerPage,
-                      lifletZaglavlje.length
+                      lifletZaglavlje.length,
                     )}{" "}
                     od {lifletZaglavlje.length} zapisa{" "}
                     {lifletZaglavlje.length !== totalRecords &&
@@ -1352,7 +1358,7 @@ export default function LifletPage() {
         <CardHeader className="flex flex-row items-center justify-between">
           <CardTitle>
             {selectedLiflet
-              ? `Detalji Lifleta - ID: ${selectedLiflet.id}`
+              ? `Detalji Lifleta (ID: ${selectedLiflet.id}) ${selectedLiflet.datum_od ? `| Od: ${formatSerbianDate(selectedLiflet.datum_od)}` : ""} ${selectedLiflet.datum_do ? `| Do: ${formatSerbianDate(selectedLiflet.datum_do)}` : ""}`
               : "Izaberite Liflet"}
           </CardTitle>
           {selectedLiflet && (
@@ -1367,299 +1373,311 @@ export default function LifletPage() {
                     Dodaj Artikal
                   </Button>
                 </DialogTrigger>
-              <DialogContent className="max-w-2xl">
-                <DialogHeader>
-                  <DialogTitle>Dodaj Artikal na Liflet</DialogTitle>
-                  <DialogDescription>
-                    Pretražite i izaberite artikal za dodavanje na ovaj liflet.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="article_search" className="text-right">
-                      Artikal
-                    </Label>
-                    <div className="col-span-3 relative">
-                      <Input
-                        id="article_search"
-                        placeholder="Type to search articles..."
-                        value={articleSearchTerm}
-                        onChange={(e) => {
-                          setArticleSearchTerm(e.target.value);
-                          searchArticles(e.target.value);
-                        }}
-                        className="w-full"
-                      />
-                      {showArticleDropdown && searchedArticles.length > 0 && (
-                        <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                          {searchedArticles.map((article) => (
-                            <div
-                              key={article.Id_Artikal}
-                              className="px-4 py-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0 flex items-center gap-3"
-                              onClick={() => selectArticle(article)}
-                            >
-                              <div className="flex-shrink-0">
-                                {article.hasImage && article.image ? (
-                                  <img
-                                    src={`/api/images/${article.image}`}
-                                    alt={article.DESCRIPTION || "Article"}
-                                    className="w-16 h-12 object-contain rounded border"
-                                  />
-                                ) : (
-                                  <div className="w-16 h-12 bg-muted rounded border flex items-center justify-center">
-                                    <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                <DialogContent className="max-w-2xl">
+                  <DialogHeader>
+                    <DialogTitle>Dodaj Artikal na Liflet</DialogTitle>
+                    <DialogDescription>
+                      Pretražite i izaberite artikal za dodavanje na ovaj
+                      liflet.
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="article_search" className="text-right">
+                        Artikal
+                      </Label>
+                      <div className="col-span-3 relative">
+                        <Input
+                          id="article_search"
+                          placeholder="Type to search articles..."
+                          value={articleSearchTerm}
+                          onChange={(e) => {
+                            setArticleSearchTerm(e.target.value);
+                            searchArticles(e.target.value);
+                          }}
+                          className="w-full"
+                        />
+                        {showArticleDropdown && searchedArticles.length > 0 && (
+                          <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                            {searchedArticles.map((article) => (
+                              <div
+                                key={article.Id_Artikal}
+                                className="px-4 py-3 hover:bg-accent cursor-pointer border-b border-border last:border-b-0 flex items-center gap-3"
+                                onClick={() => selectArticle(article)}
+                              >
+                                <div className="flex-shrink-0">
+                                  {article.hasImage && article.image ? (
+                                    <img
+                                      src={`/api/images/${article.image}`}
+                                      alt={article.DESCRIPTION || "Article"}
+                                      className="w-16 h-12 object-contain rounded border"
+                                    />
+                                  ) : (
+                                    <div className="w-16 h-12 bg-muted rounded border flex items-center justify-center">
+                                      <ImageIcon className="w-5 h-5 text-muted-foreground" />
+                                    </div>
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <div className="font-medium truncate">
+                                    {article.DESCRIPTION}
                                   </div>
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="font-medium truncate">
-                                  {article.DESCRIPTION}
-                                </div>
-                                <div className="text-sm text-muted-foreground">
-                                  Barkod: {article.BAR_CODE}
-                                </div>
-                                {article.PRICE && (
                                   <div className="text-sm text-muted-foreground">
-                                    Cena: {article.PRICE}
+                                    Barkod: {article.BAR_CODE}
                                   </div>
-                                )}
-                                {article.hasImage && (
-                                  <div className="text-xs text-green-600 font-medium mt-1">
-                                    ✓ Ima sliku
-                                  </div>
-                                )}
+                                  {article.PRICE && (
+                                    <div className="text-sm text-muted-foreground">
+                                      Cena: {article.PRICE}
+                                    </div>
+                                  )}
+                                  {article.hasImage && (
+                                    <div className="text-xs text-green-600 font-medium mt-1">
+                                      ✓ Ima sliku
+                                    </div>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="client_search" className="text-right">
-                      Klijent
-                    </Label>
-                    <div className="col-span-3 relative">
-                      <Input
-                        id="client_search"
-                        placeholder="Pretražite klijente..."
-                        value={clientSearchTerm}
-                        onChange={(e) => {
-                          setClientSearchTerm(e.target.value);
-                          searchClients(e.target.value);
-                        }}
-                        className="w-full"
-                      />
-                      {showClientDropdown && searchedClients.length > 0 && (
-                        <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
-                          {searchedClients.map((client) => (
-                            <div
-                              key={client.ID_Klijent}
-                              className="px-4 py-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
-                              onClick={() => selectClient(client)}
-                            >
-                              <div className="font-medium">{client.Naziv}</div>
-                              <div className="text-sm text-muted-foreground">
-                                PIB: {client.PIB}
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="cena_redovna" className="text-right">
-                      Regularna cena
-                    </Label>
-                    <Input
-                      id="cena_redovna"
-                      type="number"
-                      step="0.01"
-                      value={detailFormData.cena_redovna}
-                      onChange={(e) =>
-                        setDetailFormData({
-                          ...detailFormData,
-                          cena_redovna: e.target.value,
-                        })
-                      }
-                      className="col-span-3"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-center gap-4">
-                    <Label htmlFor="cena_akcija" className="text-right">
-                      Akcijska cena
-                    </Label>
-                    <Input
-                      id="cena_akcija"
-                      type="number"
-                      step="0.01"
-                      value={detailFormData.cena_akcija}
-                      onChange={(e) =>
-                        setDetailFormData({
-                          ...detailFormData,
-                          cena_akcija: e.target.value,
-                        })
-                      }
-                      className="col-span-3"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <div className="grid grid-cols-4 items-start gap-4">
-                    <Label className="text-right pt-2">Slika</Label>
-                    <div className="col-span-3">
-                      <div
-                        className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
-                        onDrop={handleImageDrop}
-                        onDragOver={handleImageDragOver}
-                        onClick={() =>
-                          document.getElementById("image-input")?.click()
-                        }
-                      >
-                        {detailFormData.imagePreview ? (
-                          <div className="relative">
-                            <img
-                              src={detailFormData.imagePreview}
-                              alt="Preview"
-                              className="max-w-full max-h-32 mx-auto rounded"
-                            />
-                            <Button
-                              type="button"
-                              variant="destructive"
-                              size="sm"
-                              className="absolute top-2 right-2"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeImage();
-                              }}
-                            >
-                              <X className="w-4 h-4" />
-                            </Button>
-                          </div>
-                        ) : (
-                          <div>
-                            <ImageIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                            <p className="text-sm text-muted-foreground mb-1">
-                              Prevucite i spustite sliku ovde, ili kliknite da
-                              odaberete
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              Slika će biti sačuvana kao{" "}
-                              {detailFormData.Id_artikal || "ID_artikal"}.
-                              {detailFormData.image?.name.split(".").pop() ||
-                                "ekstenzija"}
-                            </p>
+                            ))}
                           </div>
                         )}
                       </div>
-                      <input
-                        id="image-input"
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (file) {
-                            handleImageSelect(file);
-                          }
-                        }}
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="client_search" className="text-right">
+                        Klijent
+                      </Label>
+                      <div className="col-span-3 relative">
+                        <Input
+                          id="client_search"
+                          placeholder="Pretražite klijente..."
+                          value={clientSearchTerm}
+                          onChange={(e) => {
+                            setClientSearchTerm(e.target.value);
+                            searchClients(e.target.value);
+                          }}
+                          className="w-full"
+                        />
+                        {showClientDropdown && searchedClients.length > 0 && (
+                          <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
+                            {searchedClients.map((client) => (
+                              <div
+                                key={client.ID_Klijent}
+                                className="px-4 py-2 hover:bg-accent cursor-pointer border-b border-border last:border-b-0"
+                                onClick={() => selectClient(client)}
+                              >
+                                <div className="font-medium">
+                                  {client.Naziv}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  PIB: {client.PIB}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="cena_redovna" className="text-right">
+                        Regularna cena
+                      </Label>
+                      <Input
+                        id="cena_redovna"
+                        type="number"
+                        step="0.01"
+                        value={detailFormData.cena_redovna}
+                        onChange={(e) =>
+                          setDetailFormData({
+                            ...detailFormData,
+                            cena_redovna: e.target.value,
+                          })
+                        }
+                        className="col-span-3"
+                        placeholder="0.00"
                       />
-                      <p className="text-xs text-muted-foreground mt-2">
-                        Opciono: Pošaljite sliku za ovaj artikal
-                      </p>
+                    </div>
+                    <div className="grid grid-cols-4 items-center gap-4">
+                      <Label htmlFor="cena_akcija" className="text-right">
+                        Akcijska cena
+                      </Label>
+                      <Input
+                        id="cena_akcija"
+                        type="number"
+                        step="0.01"
+                        value={detailFormData.cena_akcija}
+                        onChange={(e) =>
+                          setDetailFormData({
+                            ...detailFormData,
+                            cena_akcija: e.target.value,
+                          })
+                        }
+                        className="col-span-3"
+                        placeholder="0.00"
+                      />
+                    </div>
+                    <div className="grid grid-cols-4 items-start gap-4">
+                      <Label className="text-right pt-2">Slika</Label>
+                      <div className="col-span-3">
+                        <div
+                          className="border-2 border-dashed border-border rounded-lg p-6 text-center hover:border-primary/50 transition-colors cursor-pointer"
+                          onDrop={handleImageDrop}
+                          onDragOver={handleImageDragOver}
+                          onClick={() =>
+                            document.getElementById("image-input")?.click()
+                          }
+                        >
+                          {detailFormData.imagePreview ? (
+                            <div className="relative">
+                              <img
+                                src={detailFormData.imagePreview}
+                                alt="Preview"
+                                className="max-w-full max-h-32 mx-auto rounded"
+                              />
+                              <Button
+                                type="button"
+                                variant="destructive"
+                                size="sm"
+                                className="absolute top-2 right-2"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  removeImage();
+                                }}
+                              >
+                                <X className="w-4 h-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <div>
+                              <ImageIcon className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
+                              <p className="text-sm text-muted-foreground mb-1">
+                                Prevucite i spustite sliku ovde, ili kliknite da
+                                odaberete
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Slika će biti sačuvana kao{" "}
+                                {detailFormData.Id_artikal || "ID_artikal"}.
+                                {detailFormData.image?.name.split(".").pop() ||
+                                  "ekstenzija"}
+                              </p>
+                            </div>
+                          )}
+                        </div>
+                        <input
+                          id="image-input"
+                          type="file"
+                          accept="image/*"
+                          className="hidden"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              handleImageSelect(file);
+                            }
+                          }}
+                        />
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Opciono: Pošaljite sliku za ovaj artikal
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    type="submit"
-                    onClick={handleCreateDetail}
-                    disabled={
-                      !detailFormData.selectedArticle ||
-                      !detailFormData.selectedClient
-                    }
-                  >
-                    Dodaj Artikal
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-            
-            <Dialog
-              open={isShareModalOpen}
-              onOpenChange={setIsShareModalOpen}
-            >
-              <DialogTrigger asChild>
-                <Button size="sm" variant="outline">
-                  <Share className="w-4 h-4 mr-2" />
-                  Podeli
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Podeli Liflet</DialogTitle>
-                  <DialogDescription>
-                    Pošalji sve artikle i slike u ZIP fajlu putem emaila
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-3 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="share_to">Email primaoca *</Label>
-                    <Input
-                      id="share_to"
-                      type="email"
-                      placeholder="primalac@example.com"
-                      value={shareFormData.to}
-                      onChange={(e) =>
-                        setShareFormData({ ...shareFormData, to: e.target.value })
+                  <DialogFooter>
+                    <Button
+                      type="submit"
+                      onClick={handleCreateDetail}
+                      disabled={
+                        !detailFormData.selectedArticle ||
+                        !detailFormData.selectedClient
                       }
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="share_subject">Naslov *</Label>
-                    <Input
-                      id="share_subject"
-                      placeholder="Liflet - Artikli"
-                      value={shareFormData.subject}
-                      onChange={(e) =>
-                        setShareFormData({ ...shareFormData, subject: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="share_message">Poruka *</Label>
-                    <Textarea
-                      id="share_message"
-                      placeholder="Šaljem vam liflet sa artiklima..."
-                      value={shareFormData.message}
-                      onChange={(e) =>
-                        setShareFormData({ ...shareFormData, message: e.target.value })
-                      }
-                      rows={3}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setIsShareModalOpen(false)}
-                    disabled={isSharing}
-                  >
-                    Odustani
+                    >
+                      Dodaj Artikal
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+
+              <Dialog
+                open={isShareModalOpen}
+                onOpenChange={setIsShareModalOpen}
+              >
+                <DialogTrigger asChild>
+                  <Button size="sm" variant="outline">
+                    <Share className="w-4 h-4 mr-2" />
+                    Podeli
                   </Button>
-                  <Button
-                    type="submit"
-                    onClick={handleShare}
-                    disabled={isSharing}
-                  >
-                    {isSharing ? "Šaljem..." : "Pošalji"}
-                  </Button>
-                </DialogFooter>
-              </DialogContent>
-            </Dialog>
-          </div>
+                </DialogTrigger>
+                <DialogContent className="max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Podeli Liflet</DialogTitle>
+                    <DialogDescription>
+                      Pošalji sve artikle i slike u ZIP fajlu putem emaila
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="grid gap-3 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="share_to">Email primaoca *</Label>
+                      <Input
+                        id="share_to"
+                        type="email"
+                        placeholder="primalac@example.com"
+                        value={shareFormData.to}
+                        onChange={(e) =>
+                          setShareFormData({
+                            ...shareFormData,
+                            to: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="share_subject">Naslov *</Label>
+                      <Input
+                        id="share_subject"
+                        placeholder="Liflet - Artikli"
+                        value={shareFormData.subject}
+                        onChange={(e) =>
+                          setShareFormData({
+                            ...shareFormData,
+                            subject: e.target.value,
+                          })
+                        }
+                      />
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="share_message">Poruka *</Label>
+                      <Textarea
+                        id="share_message"
+                        placeholder="Šaljem vam liflet sa artiklima..."
+                        value={shareFormData.message}
+                        onChange={(e) =>
+                          setShareFormData({
+                            ...shareFormData,
+                            message: e.target.value,
+                          })
+                        }
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                  <DialogFooter>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsShareModalOpen(false)}
+                      disabled={isSharing}
+                    >
+                      Odustani
+                    </Button>
+                    <Button
+                      type="submit"
+                      onClick={handleShare}
+                      disabled={isSharing}
+                    >
+                      {isSharing ? "Šaljem..." : "Pošalji"}
+                    </Button>
+                  </DialogFooter>
+                </DialogContent>
+              </Dialog>
+            </div>
           )}
         </CardHeader>
         <CardContent>
@@ -1685,8 +1703,8 @@ export default function LifletPage() {
                       new Set(
                         lifletDetalji
                           .filter((item) => item.klijenti?.Naziv)
-                          .map((item) => item.klijenti!.Naziv!)
-                      )
+                          .map((item) => item.klijenti!.Naziv!),
+                      ),
                     )
                       .sort()
                       .map((clientName) => (
@@ -1748,7 +1766,7 @@ export default function LifletPage() {
                         const matchesSearch =
                           !searchTerm ||
                           detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
-                            searchTerm.toLowerCase()
+                            searchTerm.toLowerCase(),
                           ) ||
                           detalj.artikli?.BAR_CODE?.includes(searchTerm);
 
@@ -1805,7 +1823,7 @@ export default function LifletPage() {
                                 onClick={() =>
                                   window.open(
                                     `/api/images/${detalj.image}`,
-                                    "_blank"
+                                    "_blank",
                                   )
                                 }
                               />
@@ -2175,7 +2193,7 @@ export default function LifletPage() {
                     <input
                       type="checkbox"
                       checked={selectedProdavnice.includes(
-                        prodavnica.ID_Prodavnica
+                        prodavnica.ID_Prodavnica,
                       )}
                       onChange={() =>
                         toggleProdavnicaSelection(prodavnica.ID_Prodavnica)
