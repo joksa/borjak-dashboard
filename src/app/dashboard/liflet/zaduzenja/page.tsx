@@ -39,8 +39,10 @@ import {
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
+  Upload,
 } from "lucide-react";
 import { toast } from "sonner";
+import { LifletUvozDialog } from "@/components/liflet-uvoz-dialog";
 
 type LifletFinansije = {
   id: number;
@@ -83,6 +85,7 @@ export default function ZaduzenjaPage() {
   // Modal states
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isUvozOpen, setIsUvozOpen] = useState(false);
   const [editingFinansija, setEditingFinansija] =
     useState<LifletFinansije | null>(null);
 
@@ -356,6 +359,16 @@ export default function ZaduzenjaPage() {
         <Card className="w-full h-full">
           <CardHeader className="flex flex-row items-center justify-between ">
             <CardTitle>Detalji o zaduženjima</CardTitle>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setIsUvozOpen(true)}>
+                <Upload className="w-4 h-4 mr-2" />
+                Uvoz
+              </Button>
+              <LifletUvozDialog
+                open={isUvozOpen}
+                onOpenChange={setIsUvozOpen}
+                onImported={loadFinansije}
+              />
             <Dialog
               open={isCreateModalOpen}
               onOpenChange={setIsCreateModalOpen}
@@ -471,6 +484,7 @@ export default function ZaduzenjaPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+            </div>
           </CardHeader>
           <CardContent>
             <div className="mb-4 flex items-center gap-2">
