@@ -1,10 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PrismaClient } from "@prisma/client";
+import { unlink } from "fs/promises";
+import { join } from "path";
 
 const prisma = new PrismaClient();
 
+const storageDir = process.env.NODE_ENV === "production"
+  ? "/app/storage"
+  : join(process.cwd(), "storage");
+
+async function deleteImageFile(filename: string | null) {
+  if (!filename) return;
+  try {
+    await unlink(join(storageDir, filename));
+  } catch {
+    // file may already be gone — ignore
+  }
+}
+
 export async function GET(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -14,37 +29,19 @@ export async function GET(
     const detalj = await prisma.liflet_detalji.findUnique({
       where: { id: parsedId },
       include: {
-        artikli: {
-          select: {
-            Id_Artikal: true,
-            DESCRIPTION: true,
-            BAR_CODE: true,
-          },
-        },
-        klijenti: {
-          select: {
-            ID_Klijent: true,
-            Naziv: true,
-            PIB: true,
-          },
-        },
+        artikli: { select: { Id_Artikal: true, DESCRIPTION: true, BAR_CODE: true } },
+        klijenti: { select: { ID_Klijent: true, Naziv: true, PIB: true } },
       },
     });
 
     if (!detalj) {
-      return NextResponse.json(
-        { error: "Liflet detalji not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Liflet detalji not found" }, { status: 404 });
     }
 
     return NextResponse.json(detalj);
   } catch (error) {
     console.error("Error fetching liflet detalji:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch liflet detalji" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to fetch liflet detalji" }, { status: 500 });
   }
 }
 
@@ -58,6 +55,17 @@ export async function PUT(
     const body = await request.json();
     const { liflet_id, Id_artikal, ID_Klijent, cena_akcija, cena_redovna, image } = body;
 
+    // If image is being changed (new upload or removed), delete the old file
+    if (image !== undefined) {
+      const current = await prisma.liflet_detalji.findUnique({
+        where: { id: parsedId },
+        select: { image: true },
+      });
+      if (current?.image && current.image !== image) {
+        await deleteImageFile(current.image);
+      }
+    }
+
     const detalj = await prisma.liflet_detalji.update({
       where: { id: parsedId },
       data: {
@@ -69,51 +77,38 @@ export async function PUT(
         image: image !== undefined ? image : undefined,
       },
       include: {
-        artikli: {
-          select: {
-            Id_Artikal: true,
-            DESCRIPTION: true,
-            BAR_CODE: true,
-          },
-        },
-        klijenti: {
-          select: {
-            ID_Klijent: true,
-            Naziv: true,
-            PIB: true,
-          },
-        },
+        artikli: { select: { Id_Artikal: true, DESCRIPTION: true, BAR_CODE: true } },
+        klijenti: { select: { ID_Klijent: true, Naziv: true, PIB: true } },
       },
     });
 
     return NextResponse.json(detalj);
   } catch (error) {
     console.error("Error updating liflet detalji:", error);
-    return NextResponse.json(
-      { error: "Failed to update liflet detalji" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to update liflet detalji" }, { status: 500 });
   }
 }
 
 export async function DELETE(
-  request: NextRequest,
+  _request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { id } = await params;
     const parsedId = parseInt(id);
 
-    await prisma.liflet_detalji.delete({
+    // Delete image file before removing the record
+    const current = await prisma.liflet_detalji.findUnique({
       where: { id: parsedId },
+      select: { image: true },
     });
+    await deleteImageFile(current?.image ?? null);
+
+    await prisma.liflet_detalji.delete({ where: { id: parsedId } });
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting liflet detalji:", error);
-    return NextResponse.json(
-      { error: "Failed to delete liflet detalji" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to delete liflet detalji" }, { status: 500 });
   }
 }
