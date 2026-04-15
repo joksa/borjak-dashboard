@@ -1365,7 +1365,10 @@ export default function LifletPage() {
             <div className="flex gap-2">
               <Dialog
                 open={isCreateDetailModalOpen}
-                onOpenChange={setIsCreateDetailModalOpen}
+                onOpenChange={(open) => {
+                  if (!open) resetDetailForm();
+                  setIsCreateDetailModalOpen(open);
+                }}
               >
                 <DialogTrigger asChild>
                   <Button size="sm">
@@ -1387,16 +1390,37 @@ export default function LifletPage() {
                         Artikal
                       </Label>
                       <div className="col-span-3 relative">
-                        <Input
-                          id="article_search"
-                          placeholder="Type to search articles..."
-                          value={articleSearchTerm}
-                          onChange={(e) => {
-                            setArticleSearchTerm(e.target.value);
-                            searchArticles(e.target.value);
-                          }}
-                          className="w-full"
-                        />
+                        <div className="relative">
+                          <Input
+                            id="article_search"
+                            placeholder="Pretražite artikle..."
+                            value={articleSearchTerm}
+                            readOnly={!!detailFormData.selectedArticle}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            autoCapitalize="off"
+                            spellCheck={false}
+                            onChange={(e) => {
+                              if (detailFormData.selectedArticle) return;
+                              setArticleSearchTerm(e.target.value);
+                              searchArticles(e.target.value);
+                            }}
+                            className={`w-full pr-8 ${detailFormData.selectedArticle ? "bg-muted cursor-default" : ""}`}
+                          />
+                          {detailFormData.selectedArticle && (
+                            <button
+                              type="button"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                setDetailFormData({ ...detailFormData, Id_artikal: "", selectedArticle: null });
+                                setArticleSearchTerm("");
+                                setSearchedArticles([]);
+                              }}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                         {showArticleDropdown && searchedArticles.length > 0 && (
                           <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                             {searchedArticles.map((article) => (
@@ -1447,16 +1471,37 @@ export default function LifletPage() {
                         Klijent
                       </Label>
                       <div className="col-span-3 relative">
-                        <Input
-                          id="client_search"
-                          placeholder="Pretražite klijente..."
-                          value={clientSearchTerm}
-                          onChange={(e) => {
-                            setClientSearchTerm(e.target.value);
-                            searchClients(e.target.value);
-                          }}
-                          className="w-full"
-                        />
+                        <div className="relative">
+                          <Input
+                            id="client_search"
+                            placeholder="Pretražite klijente..."
+                            value={clientSearchTerm}
+                            readOnly={!!detailFormData.selectedClient}
+                            autoComplete="off"
+                            autoCorrect="off"
+                            autoCapitalize="off"
+                            spellCheck={false}
+                            onChange={(e) => {
+                              if (detailFormData.selectedClient) return;
+                              setClientSearchTerm(e.target.value);
+                              searchClients(e.target.value);
+                            }}
+                            className={`w-full pr-8 ${detailFormData.selectedClient ? "bg-muted cursor-default" : ""}`}
+                          />
+                          {detailFormData.selectedClient && (
+                            <button
+                              type="button"
+                              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                              onClick={() => {
+                                setDetailFormData({ ...detailFormData, ID_Klijent: "", selectedClient: null });
+                                setClientSearchTerm("");
+                                setSearchedClients([]);
+                              }}
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
                         {showClientDropdown && searchedClients.length > 0 && (
                           <div className="absolute z-10 w-full bg-popover border border-border rounded-md shadow-lg max-h-60 overflow-y-auto">
                             {searchedClients.map((client) => (
@@ -1485,6 +1530,7 @@ export default function LifletPage() {
                         id="cena_redovna"
                         type="number"
                         step="0.01"
+                        autoComplete="off"
                         value={detailFormData.cena_redovna}
                         onChange={(e) =>
                           setDetailFormData({
@@ -1504,6 +1550,7 @@ export default function LifletPage() {
                         id="cena_akcija"
                         type="number"
                         step="0.01"
+                        autoComplete="off"
                         value={detailFormData.cena_akcija}
                         onChange={(e) =>
                           setDetailFormData({
@@ -1950,7 +1997,10 @@ export default function LifletPage() {
       {/* Edit Detail Modal */}
       <Dialog
         open={isEditDetailModalOpen}
-        onOpenChange={setIsEditDetailModalOpen}
+        onOpenChange={(open) => {
+          if (!open) resetDetailForm();
+          setIsEditDetailModalOpen(open);
+        }}
       >
         <DialogContent className="max-w-2xl">
           <DialogHeader>
@@ -1994,6 +2044,7 @@ export default function LifletPage() {
                 id="edit_cena_redovna"
                 type="number"
                 step="0.01"
+                autoComplete="off"
                 value={detailFormData.cena_redovna}
                 onChange={(e) =>
                   setDetailFormData({
@@ -2013,6 +2064,7 @@ export default function LifletPage() {
                 id="edit_cena_akcija"
                 type="number"
                 step="0.01"
+                autoComplete="off"
                 value={detailFormData.cena_akcija}
                 onChange={(e) =>
                   setDetailFormData({

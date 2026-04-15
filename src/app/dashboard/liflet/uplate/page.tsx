@@ -155,16 +155,16 @@ export default function UplatePage() {
       });
 
       if (response.ok) {
-        toast.success("Financial record created successfully");
+        toast.success("Finansijski zapis kreiran uspešno");
         setIsCreateModalOpen(false);
         resetForm();
         loadFinansije();
       } else {
-        toast.error("Failed to create financial record");
+        toast.error("Neuspelo kreiranje finansijskog zapisa");
       }
     } catch (error) {
-      console.error("Error creating financial record:", error);
-      toast.error("Failed to create financial record");
+      console.error("Greška prilikom kreiranja finansijskog zapisa:", error);
+      toast.error("Neuspelo kreiranje finansijskog zapisa");
     }
   };
 
@@ -186,17 +186,17 @@ export default function UplatePage() {
       );
 
       if (response.ok) {
-        toast.success("Financial record updated successfully");
+        toast.success("Finansijski zapis ažuriran uspešno");
         setIsEditModalOpen(false);
         setEditingFinansija(null);
         resetForm();
         loadFinansije();
       } else {
-        toast.error("Failed to update financial record");
+        toast.error("Neuspelo ažuriranje finansijskog zapisa");
       }
     } catch (error) {
-      console.error("Error updating financial record:", error);
-      toast.error("Failed to update financial record");
+      console.error("Greška prilikom ažuriranja finansijskog zapisa:", error);
+      toast.error("Neuspelo ažuriranje finansijskog zapisa");
     }
   };
 
@@ -207,14 +207,14 @@ export default function UplatePage() {
       });
 
       if (response.ok) {
-        toast.success("Financial record deleted successfully");
+        toast.success("Finansijski zapis obrisan uspešno");
         loadFinansije();
       } else {
-        toast.error("Failed to delete financial record");
+        toast.error("Neuspelo brisanje finansijskog zapisa");
       }
     } catch (error) {
-      console.error("Error deleting financial record:", error);
-      toast.error("Failed to delete financial record");
+      console.error("Greska prilikom brisanja finansijskog zapisa:", error);
+      toast.error("Neuspelo brisanje finansijskog zapisa");
     }
   };
 
