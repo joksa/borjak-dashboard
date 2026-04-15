@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Select,
   SelectContent,
@@ -269,6 +270,14 @@ export default function ZaduzenjaPage() {
   };
 
   // Serbian number formatting function
+  const formatSerbianDate = (date: string | Date) => {
+    const dateObj = typeof date === "string" ? new Date(date) : date;
+    const d = String(dateObj.getUTCDate()).padStart(2, "0");
+    const m = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
+    const y = dateObj.getUTCFullYear();
+    return `${d}.${m}.${y}`;
+  };
+
   const formatSerbianNumber = (value: number) => {
     return new Intl.NumberFormat("sr-RS", {
       minimumFractionDigits: 2,
@@ -402,9 +411,8 @@ export default function ZaduzenjaPage() {
                     <label htmlFor="datum" className="text-right">
                       Datum
                     </label>
-                    <Input
+                    <DateInput
                       id="datum"
-                      type="date"
                       value={formData.datum}
                       onChange={(e) =>
                         setFormData({ ...formData, datum: e.target.value })
@@ -416,9 +424,8 @@ export default function ZaduzenjaPage() {
                     <label htmlFor="valuta" className="text-right">
                       Datum dospeća
                     </label>
-                    <Input
+                    <DateInput
                       id="valuta"
-                      type="date"
                       value={formData.valuta}
                       onChange={(e) =>
                         setFormData({ ...formData, valuta: e.target.value })
@@ -570,11 +577,11 @@ export default function ZaduzenjaPage() {
                           {formatSerbianNumber(Number(finansija.iznos))}
                         </td>
                         <td className="border border-border px-4 py-2">
-                          {new Date(finansija.datum).toLocaleDateString()}
+                          {formatSerbianDate(finansija.datum)}
                         </td>
                         <td className="border border-border px-4 py-2">
                           {finansija.valuta
-                            ? new Date(finansija.valuta).toLocaleDateString()
+                            ? formatSerbianDate(finansija.valuta)
                             : "-"}
                         </td>
                         <td className="border border-border px-4 py-2">
@@ -696,9 +703,8 @@ export default function ZaduzenjaPage() {
               <label htmlFor="edit_datum" className="text-right">
                 Datum
               </label>
-              <Input
+              <DateInput
                 id="edit_datum"
-                type="date"
                 value={formData.datum}
                 onChange={(e) =>
                   setFormData({ ...formData, datum: e.target.value })
@@ -710,9 +716,8 @@ export default function ZaduzenjaPage() {
               <label htmlFor="edit_valuta" className="text-right">
                 Datum dospeća
               </label>
-              <Input
+              <DateInput
                 id="edit_valuta"
-                type="date"
                 value={formData.valuta}
                 onChange={(e) =>
                   setFormData({ ...formData, valuta: e.target.value })

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Select,
   SelectContent,
@@ -107,7 +108,7 @@ export default function UplatePage() {
 
   const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [searchedClients, setSearchedClients] = useState<ClientSearchResult[]>(
-    []
+    [],
   );
   const [showClientDropdown, setShowClientDropdown] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
@@ -181,7 +182,7 @@ export default function UplatePage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(editData),
-        }
+        },
       );
 
       if (response.ok) {
@@ -311,8 +312,8 @@ export default function UplatePage() {
         new Set(
           parsedRecords
             .map((record) => record.clientAccountNumber)
-            .filter((account) => account && account.trim().length > 0)
-        )
+            .filter((account) => account && account.trim().length > 0),
+        ),
       );
 
       let enrichedRecords = parsedRecords;
@@ -322,8 +323,8 @@ export default function UplatePage() {
         try {
           const response = await fetch(
             `/api/clients?accounts=${encodeURIComponent(
-              accountNumbers.join(",")
-            )}`
+              accountNumbers.join(","),
+            )}`,
           );
           const clientData = await response.json();
           console.log("clientData", clientData);
@@ -333,7 +334,7 @@ export default function UplatePage() {
               clientData.data.map((client: ClientAccountResult) => [
                 client.accountNumber,
                 client,
-              ])
+              ]),
             );
 
             // Add client names to parsed records
@@ -356,7 +357,7 @@ export default function UplatePage() {
       setSelectedRows(new Set()); // Clear selection when new file is loaded
 
       toast.success(
-        `Parsed ${parsedRecords.length} records from "${file.name}"`
+        `Parsed ${parsedRecords.length} records from "${file.name}"`,
       );
     } catch (error) {
       console.error("Error parsing file:", error);
@@ -385,7 +386,7 @@ export default function UplatePage() {
   const handleImportData = async () => {
     try {
       const selectedData = Array.from(selectedRows).map(
-        (index) => parsedData[index]
+        (index) => parsedData[index],
       );
 
       if (selectedData.length === 0) {
@@ -398,7 +399,7 @@ export default function UplatePage() {
 
       if (validRecords.length === 0) {
         toast.error(
-          "No valid records found with client information. Please ensure clients are properly matched."
+          "No valid records found with client information. Please ensure clients are properly matched.",
         );
         return;
       }
@@ -437,14 +438,14 @@ export default function UplatePage() {
           } else {
             console.error(
               `Failed to create payment for client ${record.clientNaziv}:`,
-              response.statusText
+              response.statusText,
             );
             errorCount++;
           }
         } catch (recordError) {
           console.error(
             `Error processing record for client ${record.clientNaziv}:`,
-            recordError
+            recordError,
           );
           errorCount++;
         }
@@ -455,14 +456,14 @@ export default function UplatePage() {
         toast.success(
           `Successfully imported ${successCount} payment${
             successCount === 1 ? "" : "s"
-          }`
+          }`,
         );
         loadFinansije(); // Refresh the financial data
       }
 
       if (errorCount > 0) {
         toast.error(
-          `Failed to import ${errorCount} payment${errorCount === 1 ? "" : "s"}`
+          `Failed to import ${errorCount} payment${errorCount === 1 ? "" : "s"}`,
         );
       }
 
@@ -471,7 +472,7 @@ export default function UplatePage() {
         toast.warning(
           `${skippedCount} record${
             skippedCount === 1 ? "" : "s"
-          } skipped due to missing client information`
+          } skipped due to missing client information`,
         );
       }
 
@@ -506,7 +507,7 @@ export default function UplatePage() {
 
     try {
       const response = await fetch(
-        `/api/clients?search=${encodeURIComponent(search)}&limit=20`
+        `/api/clients?search=${encodeURIComponent(search)}&limit=20`,
       );
       const data = await response.json();
       setSearchedClients(data.data || []);
@@ -542,7 +543,7 @@ export default function UplatePage() {
     setClientSearchTerm(
       finansija.klijenti
         ? `${finansija.klijenti.Naziv} (${finansija.klijenti.PIB})`
-        : ""
+        : "",
     );
     setIsEditModalOpen(true);
   };
@@ -556,7 +557,6 @@ export default function UplatePage() {
     );
   };
 
-  // Serbian number formatting function
   const formatSerbianNumber = (value: number) => {
     return new Intl.NumberFormat("sr-RS", {
       minimumFractionDigits: 2,
@@ -565,18 +565,18 @@ export default function UplatePage() {
   };
 
   // Serbian date formatting function (DD.MM.YYYY)
-  const formatSerbianDate = (dateString: string) => {
+  const formatSerbianDate = (dateString: string | Date): string => {
     try {
-      const date = new Date(dateString);
+      const date = typeof dateString === "string" ? new Date(dateString) : dateString;
       if (isNaN(date.getTime())) {
-        return dateString; // Return original if invalid
+        return typeof dateString === "string" ? dateString : "";
       }
       const day = date.getDate().toString().padStart(2, "0");
       const month = (date.getMonth() + 1).toString().padStart(2, "0");
       const year = date.getFullYear();
       return `${day}.${month}.${year}`;
     } catch {
-      return dateString; // Return original if parsing fails
+      return typeof dateString === "string" ? dateString : "";
     }
   };
 
@@ -706,9 +706,8 @@ export default function UplatePage() {
                       <label htmlFor="datum" className="text-right">
                         Datum
                       </label>
-                      <Input
+                      <DateInput
                         id="datum"
-                        type="date"
                         value={formData.datum}
                         onChange={(e) =>
                           setFormData({ ...formData, datum: e.target.value })
@@ -956,8 +955,8 @@ export default function UplatePage() {
                     new Set(
                       finansije
                         .filter((item) => item.klijenti?.Naziv)
-                        .map((item) => item.klijenti!.Naziv!)
-                    )
+                        .map((item) => item.klijenti!.Naziv!),
+                    ),
                   )
                     .sort()
                     .map((clientName) => (
@@ -1050,7 +1049,7 @@ export default function UplatePage() {
                           {formatSerbianNumber(Number(finansija.iznos))}
                         </td>
                         <td className="border border-border px-4 py-2">
-                          {new Date(finansija.datum).toLocaleDateString()}
+                          {formatSerbianDate(finansija.datum)}
                         </td>
                         <td className="border border-border px-4 py-2">
                           {finansija.napomena || "-"}
@@ -1110,8 +1109,8 @@ export default function UplatePage() {
                       {formatSerbianNumber(
                         filteredFinansije.reduce(
                           (sum, f) => sum + Number(f.iznos || 0),
-                          0
-                        )
+                          0,
+                        ),
                       )}
                     </td>
                     <td
@@ -1171,9 +1170,8 @@ export default function UplatePage() {
               <label htmlFor="edit_datum" className="text-right">
                 Datum
               </label>
-              <Input
+              <DateInput
                 id="edit_datum"
-                type="date"
                 value={formData.datum}
                 onChange={(e) =>
                   setFormData({ ...formData, datum: e.target.value })

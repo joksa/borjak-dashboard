@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Select,
   SelectContent,
@@ -379,9 +380,8 @@ export default function PopisiParcijalnoPage() {
                   <div className="grid gap-4 py-4">
                     <div className="grid grid-cols-4 items-center gap-4">
                       <label htmlFor="dok_datum" className="text-right">Datum</label>
-                      <Input
+                      <DateInput
                         id="dok_datum"
-                        type="date"
                         value={formData.dok_datum}
                         onChange={(e) => setFormData({ ...formData, dok_datum: e.target.value })}
                         className="col-span-3"
@@ -646,9 +646,8 @@ export default function PopisiParcijalnoPage() {
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <label htmlFor="edit_datum" className="text-right">Datum</label>
-              <Input
+              <DateInput
                 id="edit_datum"
-                type="date"
                 value={formData.dok_datum}
                 onChange={(e) => setFormData({ ...formData, dok_datum: e.target.value })}
                 className="col-span-3"

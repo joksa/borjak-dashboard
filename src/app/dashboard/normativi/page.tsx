@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import {
   Dialog,
   DialogContent,
@@ -469,8 +470,7 @@ export default function NormativiPage() {
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-4 items-center gap-4">
                     <label className="text-right">Datum</label>
-                    <Input
-                      type="date"
+                    <DateInput
                       value={headerForm.datum}
                       onChange={(e) =>
                         setHeaderForm({ ...headerForm, datum: e.target.value })
@@ -554,8 +554,8 @@ export default function NormativiPage() {
                   filtered.map((item) => {
                     const isExpanded = expandedRows.has(item.id);
                     return (
-                      <>
-                        <tr key={item.id} className="hover:bg-muted">
+                      <React.Fragment key={item.id}>
+                        <tr className="hover:bg-muted">
                           <td className="border border-border px-2 py-2 text-center">
                             <Button
                               variant="ghost"
@@ -738,7 +738,7 @@ export default function NormativiPage() {
                             </td>
                           </tr>
                         )}
-                      </>
+                      </React.Fragment>
                     );
                   })
                 )}
@@ -767,8 +767,7 @@ export default function NormativiPage() {
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
               <label className="text-right">Datum</label>
-              <Input
-                type="date"
+              <DateInput
                 value={headerForm.datum}
                 onChange={(e) =>
                   setHeaderForm({ ...headerForm, datum: e.target.value })

@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
@@ -1068,7 +1069,10 @@ export default function LifletPage() {
 
   const formatSerbianDate = (date: string | Date) => {
     const dateObj = typeof date === "string" ? new Date(date) : date;
-    return dateObj.toLocaleDateString("sr-RS");
+    const d = String(dateObj.getUTCDate()).padStart(2, "0");
+    const m = String(dateObj.getUTCMonth() + 1).padStart(2, "0");
+    const y = dateObj.getUTCFullYear();
+    return `${d}.${m}.${y}`;
   };
 
   return (
@@ -1097,9 +1101,8 @@ export default function LifletPage() {
                   <Label htmlFor="datum_od" className="text-right">
                     Datum početka
                   </Label>
-                  <Input
+                  <DateInput
                     id="datum_od"
-                    type="date"
                     value={formData.datum_od}
                     onChange={(e) =>
                       setFormData({ ...formData, datum_od: e.target.value })
@@ -1111,9 +1114,8 @@ export default function LifletPage() {
                   <Label htmlFor="datum_do" className="text-right">
                     Datum završetka
                   </Label>
-                  <Input
+                  <DateInput
                     id="datum_do"
-                    type="date"
                     value={formData.datum_do}
                     onChange={(e) =>
                       setFormData({ ...formData, datum_do: e.target.value })
@@ -1246,10 +1248,10 @@ export default function LifletPage() {
                               {liflet.id}
                             </td>
                             <td className="border border-border px-4 py-2 w-32">
-                              {new Date(liflet.datum_od).toLocaleDateString()}
+                              {formatSerbianDate(liflet.datum_od)}
                             </td>
                             <td className="border border-border px-4 py-2 w-32">
-                              {new Date(liflet.datum_do).toLocaleDateString()}
+                              {formatSerbianDate(liflet.datum_do)}
                             </td>
                             <td className="border border-border px-4 py-2 w-32">
                               <div className="flex space-x-2">
@@ -1882,9 +1884,8 @@ export default function LifletPage() {
               <Label htmlFor="edit_datum_od" className="text-right">
                 Datum početka
               </Label>
-              <Input
+              <DateInput
                 id="edit_datum_od"
-                type="date"
                 value={formData.datum_od}
                 onChange={(e) =>
                   setFormData({ ...formData, datum_od: e.target.value })
@@ -1896,9 +1897,8 @@ export default function LifletPage() {
               <Label htmlFor="edit_datum_do" className="text-right">
                 Datum završetka
               </Label>
-              <Input
+              <DateInput
                 id="edit_datum_do"
-                type="date"
                 value={formData.datum_do}
                 onChange={(e) =>
                   setFormData({ ...formData, datum_do: e.target.value })
