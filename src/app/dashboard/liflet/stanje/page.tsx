@@ -752,7 +752,7 @@ export default function StanjePage() {
                             KONAČNO STANJE:
                           </td>
                           <td
-                            className={`border border-border px-4 py-3 font-bold ${(() => {
+                            className={`border border-border px-4 py-3 font-bold text-right ${(() => {
                               let finalBalance = 0;
                               clientTransactions.forEach((transaction) => {
                                 const amount = Number(transaction.iznos);
