@@ -32,16 +32,25 @@ type ClientTransaction = {
   napomena: string | null;
 };
 
+type ClientPlan = {
+  id: number;
+  iznos: number | null;
+  datum_od: Date;
+  datum_do: Date;
+  tekst: string;
+};
+
 export default function StanjePage() {
   const [clientData, setClientData] = useState<ClientStanje[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedClient, setSelectedClient] = useState<ClientStanje | null>(
-    null
+    null,
   );
   const [clientTransactions, setClientTransactions] = useState<
     ClientTransaction[]
   >([]);
   const [loadingTransactions, setLoadingTransactions] = useState(false);
+  const [clientPlanovi, setClientPlanovi] = useState<ClientPlan[]>([]);
   const [sortConfig, setSortConfig] = useState<SortConfig>({
     key: "naziv",
     direction: "asc",
@@ -55,7 +64,7 @@ export default function StanjePage() {
     try {
       setLoadingTransactions(true);
       const response = await fetch(
-        `/api/liflet/finansije?client_id=${clientId}&details=true`
+        `/api/liflet/finansije?client_id=${clientId}&details=true`,
       );
       const data = await response.json();
       setClientTransactions(data.data || []);
@@ -67,15 +76,34 @@ export default function StanjePage() {
     }
   };
 
+  const loadClientPlanovi = async (clientId: number) => {
+    try {
+      const year = new Date().getFullYear();
+      const params = new URLSearchParams({
+        client_id: clientId.toString(),
+        date_from: `${year}-01-01`,
+        date_to: `${year}-12-31`,
+      });
+      const response = await fetch(`/api/liflet/plan?${params.toString()}`);
+      const data = await response.json();
+      setClientPlanovi(data.data || []);
+    } catch (error) {
+      console.error("Error loading client planovi:", error);
+      setClientPlanovi([]);
+    }
+  };
+
   const handleClientClick = (client: ClientStanje) => {
     if (selectedClient?.id === client.id) {
       // If clicking the same client, deselect
       setSelectedClient(null);
       setClientTransactions([]);
+      setClientPlanovi([]);
     } else {
       // Select new client and load their transactions
       setSelectedClient(client);
       loadClientTransactions(client.id);
+      loadClientPlanovi(client.id);
     }
   };
 
@@ -109,6 +137,18 @@ export default function StanjePage() {
     );
   };
 
+  const formatSerbianDate = (date: string | Date): string => {
+    try {
+      const d = typeof date === "string" ? new Date(date) : date;
+      if (isNaN(d.getTime())) return "";
+      const day = d.getUTCDate().toString().padStart(2, "0");
+      const month = (d.getUTCMonth() + 1).toString().padStart(2, "0");
+      return `${day}.${month}.${d.getUTCFullYear()}`;
+    } catch {
+      return "";
+    }
+  };
+
   // Serbian number formatting function
   const formatSerbianNumber = (value: number) => {
     return new Intl.NumberFormat("sr-RS", {
@@ -138,7 +178,7 @@ export default function StanjePage() {
       currentDue: acc.currentDue + client.currentDue,
       pastDue: acc.pastDue + client.pastDue,
     }),
-    { totalZaduzenja: 0, totalUplate: 0, currentDue: 0, pastDue: 0 }
+    { totalZaduzenja: 0, totalUplate: 0, currentDue: 0, pastDue: 0 },
   );
 
   const exportClientToPDF = async (client: ClientStanje) => {
@@ -147,7 +187,7 @@ export default function StanjePage() {
       let transactions = clientTransactions;
       if (!selectedClient || selectedClient.id !== client.id) {
         const response = await fetch(
-          `/api/liflet/finansije?client_id=${client.id}&details=true`
+          `/api/liflet/finansije?client_id=${client.id}&details=true`,
         );
         const data = await response.json();
         transactions = data.data || [];
@@ -205,7 +245,7 @@ export default function StanjePage() {
               client.pib
             }</p>
             <p style="margin: 5px 0; font-size: 12px; color: #888;">Generated: ${new Date().toLocaleDateString(
-              "sr-RS"
+              "sr-RS",
             )}</p>
           </div>
 
@@ -251,7 +291,7 @@ export default function StanjePage() {
                   index % 2 === 0 ? "#ffffff" : "#f9f9f9"
                 };">
                   <td style="padding: 8px; border: 1px solid #ddd;">${new Date(
-                    transaction.datum
+                    transaction.datum,
                   ).toLocaleDateString()}</td>
                   <td style="padding: 8px; border: 1px solid #ddd;">
                     <span style="padding: 4px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; ${
@@ -279,7 +319,7 @@ export default function StanjePage() {
                     transaction.napomena || "-"
                   }</td>
                 </tr>
-              `
+              `,
                 )
                 .join("")}
             </tbody>
@@ -352,7 +392,7 @@ export default function StanjePage() {
       // Save the PDF
       const fileName = `client_statement_${client.naziv.replace(
         /[^a-zA-Z0-9šđčćžŠĐČĆŽ]/g,
-        "_"
+        "_",
       )}_${new Date().toISOString().split("T")[0]}.pdf`;
       pdf.save(fileName);
 
@@ -369,7 +409,7 @@ export default function StanjePage() {
       <div className="w-full">
         <Card className="w-full h-full">
           <CardHeader>
-            <CardTitle>Izvezi finansije klijenata</CardTitle>
+            <CardTitle>Finansije klijenata (klik za detalje)</CardTitle>
           </CardHeader>
           <CardContent>
             {/* All clients Details */}
@@ -494,7 +534,7 @@ export default function StanjePage() {
                               variant="outline"
                               size="sm"
                               onClick={(
-                                e: React.MouseEvent<HTMLButtonElement>
+                                e: React.MouseEvent<HTMLButtonElement>,
                               ) => {
                                 e.stopPropagation(); // Prevent row click
                                 handleClientClick(client);
@@ -506,7 +546,7 @@ export default function StanjePage() {
                               variant="outline"
                               size="sm"
                               onClick={(
-                                e: React.MouseEvent<HTMLButtonElement>
+                                e: React.MouseEvent<HTMLButtonElement>,
                               ) => {
                                 e.stopPropagation(); // Prevent row click
                                 exportClientToPDF(client);
@@ -606,7 +646,7 @@ export default function StanjePage() {
                                 new Date(a.datum).getTime() -
                                 new Date(b.datum).getTime()
                               );
-                            }
+                            },
                           );
 
                           // Find the last transaction with due date <= today
@@ -648,7 +688,7 @@ export default function StanjePage() {
                                 >
                                   <td className="border border-border px-4 py-2">
                                     {new Date(
-                                      transaction.datum
+                                      transaction.datum,
                                     ).toLocaleDateString()}
                                   </td>
                                   <td className="border border-border px-4 py-2 text-center">
@@ -667,7 +707,7 @@ export default function StanjePage() {
                                   <td className="border border-border px-4 py-2">
                                     {transaction.valuta
                                       ? new Date(
-                                          transaction.valuta
+                                          transaction.valuta,
                                         ).toLocaleDateString()
                                       : "-"}
                                   </td>
@@ -686,12 +726,12 @@ export default function StanjePage() {
                                       runningTotal < 0
                                         ? "text-green-600"
                                         : runningTotal > 0
-                                        ? "text-red-600"
-                                        : ""
+                                          ? "text-red-600"
+                                          : ""
                                     }`}
                                   >
                                     {formatSerbianNumber(
-                                      Math.abs(runningTotal)
+                                      Math.abs(runningTotal),
                                     )}
                                   </td>
                                   <td className="border border-border px-4 py-2">
@@ -699,7 +739,7 @@ export default function StanjePage() {
                                   </td>
                                 </tr>
                               );
-                            }
+                            },
                           );
                         })()}
                       </tbody>
@@ -725,8 +765,8 @@ export default function StanjePage() {
                               return finalBalance < 0
                                 ? "text-green-600"
                                 : finalBalance > 0
-                                ? "text-red-600"
-                                : "";
+                                  ? "text-red-600"
+                                  : "";
                             })()}`}
                           >
                             {(() => {
@@ -740,13 +780,13 @@ export default function StanjePage() {
                                 }
                               });
                               return `${formatSerbianNumber(
-                                Math.abs(finalBalance)
+                                Math.abs(finalBalance),
                               )} ${
                                 finalBalance < 0
                                   ? ""
                                   : finalBalance > 0
-                                  ? ""
-                                  : ""
+                                    ? ""
+                                    : ""
                               }`;
                             })()}
                           </td>
@@ -756,6 +796,55 @@ export default function StanjePage() {
                         </tr>
                       </tfoot>
                     </table>
+                  </div>
+                )}
+
+                {/* Plan section */}
+                {clientPlanovi.length > 0 && (
+                  <div className="mt-6">
+                    <h3 className="text-lg font-semibold mb-3">
+                      Plan / dogovori za {new Date().getFullYear()}. godinu
+                    </h3>
+                    <div className="overflow-x-auto w-full">
+                      <table className="w-full border-collapse border border-border">
+                        <thead>
+                          <tr className="bg-muted/50">
+                            <th className="border border-border px-4 py-2 text-left w-32">
+                              Datum od
+                            </th>
+                            <th className="border border-border px-4 py-2 text-left w-32">
+                              Datum do
+                            </th>
+                            <th className="border border-border px-4 py-2 text-right w-36">
+                              Iznos
+                            </th>
+                            <th className="border border-border px-4 py-2 text-left">
+                              Tekst
+                            </th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {clientPlanovi.map((plan) => (
+                            <tr key={plan.id} className="hover:bg-muted/50">
+                              <td className="border border-border px-4 py-2">
+                                {formatSerbianDate(plan.datum_od)}
+                              </td>
+                              <td className="border border-border px-4 py-2">
+                                {formatSerbianDate(plan.datum_do)}
+                              </td>
+                              <td className="border border-border px-4 py-2 text-right">
+                                {plan.iznos != null
+                                  ? formatSerbianNumber(Number(plan.iznos))
+                                  : "-"}
+                              </td>
+                              <td className="border border-border px-4 py-2 whitespace-pre-wrap">
+                                {plan.tekst}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
                   </div>
                 )}
               </div>

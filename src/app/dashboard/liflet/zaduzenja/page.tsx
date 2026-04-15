@@ -99,7 +99,7 @@ export default function ZaduzenjaPage() {
 
   const [clientSearchTerm, setClientSearchTerm] = useState("");
   const [searchedClients, setSearchedClients] = useState<ClientSearchResult[]>(
-    []
+    [],
   );
   const [showClientDropdown, setShowClientDropdown] = useState(false);
 
@@ -130,6 +130,22 @@ export default function ZaduzenjaPage() {
   };
 
   const handleCreate = async () => {
+    if (!formData.Id_klijent) {
+      toast.error("Klijent je obavezan");
+      return;
+    }
+    if (!formData.iznos || parseFloat(formData.iznos) <= 0) {
+      toast.error("Iznos je obavezan");
+      return;
+    }
+    if (!formData.datum) {
+      toast.error("Datum je obavezan");
+      return;
+    }
+    if (!formData.valuta) {
+      toast.error("Datum dospeća je obavezan");
+      return;
+    }
     try {
       const response = await fetch("/api/liflet/finansije", {
         method: "POST",
@@ -161,7 +177,7 @@ export default function ZaduzenjaPage() {
           method: "PUT",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(formData),
-        }
+        },
       );
 
       if (response.ok) {
@@ -219,7 +235,7 @@ export default function ZaduzenjaPage() {
 
     try {
       const response = await fetch(
-        `/api/clients?search=${encodeURIComponent(search)}&limit=20`
+        `/api/clients?search=${encodeURIComponent(search)}&limit=20`,
       );
       const data = await response.json();
       setSearchedClients(data.data || []);
@@ -255,7 +271,7 @@ export default function ZaduzenjaPage() {
     setClientSearchTerm(
       finansija.klijenti
         ? `${finansija.klijenti.Naziv} (${finansija.klijenti.PIB})`
-        : ""
+        : "",
     );
     setIsEditModalOpen(true);
   };
@@ -287,19 +303,19 @@ export default function ZaduzenjaPage() {
 
   // Months for filter dropdown
   const months = [
-    { value: "all", label: "All Months" },
-    { value: "01", label: "January" },
-    { value: "02", label: "February" },
-    { value: "03", label: "March" },
+    { value: "all", label: "Svi meseci" },
+    { value: "01", label: "Januar" },
+    { value: "02", label: "Februar" },
+    { value: "03", label: "Mart" },
     { value: "04", label: "April" },
-    { value: "05", label: "May" },
-    { value: "06", label: "June" },
-    { value: "07", label: "July" },
-    { value: "08", label: "August" },
-    { value: "09", label: "September" },
-    { value: "10", label: "October" },
-    { value: "11", label: "November" },
-    { value: "12", label: "December" },
+    { value: "05", label: "Maj" },
+    { value: "06", label: "Jun" },
+    { value: "07", label: "Juli" },
+    { value: "08", label: "Avgust" },
+    { value: "09", label: "Septembar" },
+    { value: "10", label: "Oktobar" },
+    { value: "11", label: "Novembar" },
+    { value: "12", label: "Decembar" },
   ];
 
   const filteredFinansije = finansije
@@ -480,8 +496,8 @@ export default function ZaduzenjaPage() {
                     new Set(
                       finansije
                         .filter((item) => item.klijenti?.Naziv)
-                        .map((item) => item.klijenti!.Naziv!)
-                    )
+                        .map((item) => item.klijenti!.Naziv!),
+                    ),
                   )
                     .sort()
                     .map((clientName) => (
@@ -642,8 +658,8 @@ export default function ZaduzenjaPage() {
                       {formatSerbianNumber(
                         filteredFinansije.reduce(
                           (sum, f) => sum + Number(f.iznos || 0),
-                          0
-                        )
+                          0,
+                        ),
                       )}
                     </td>
                     <td

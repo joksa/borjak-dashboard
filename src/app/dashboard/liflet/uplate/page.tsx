@@ -567,7 +567,8 @@ export default function UplatePage() {
   // Serbian date formatting function (DD.MM.YYYY)
   const formatSerbianDate = (dateString: string | Date): string => {
     try {
-      const date = typeof dateString === "string" ? new Date(dateString) : dateString;
+      const date =
+        typeof dateString === "string" ? new Date(dateString) : dateString;
       if (isNaN(date.getTime())) {
         return typeof dateString === "string" ? dateString : "";
       }
@@ -582,19 +583,19 @@ export default function UplatePage() {
 
   // Months for filter dropdown
   const months = [
-    { value: "all", label: "All Months" },
-    { value: "01", label: "January" },
-    { value: "02", label: "February" },
-    { value: "03", label: "March" },
+    { value: "all", label: "Svi meseci" },
+    { value: "01", label: "Januar" },
+    { value: "02", label: "Februar" },
+    { value: "03", label: "Mart" },
     { value: "04", label: "April" },
-    { value: "05", label: "May" },
-    { value: "06", label: "June" },
-    { value: "07", label: "July" },
-    { value: "08", label: "August" },
-    { value: "09", label: "September" },
-    { value: "10", label: "October" },
-    { value: "11", label: "November" },
-    { value: "12", label: "December" },
+    { value: "05", label: "Maj" },
+    { value: "06", label: "Jun" },
+    { value: "07", label: "Juli" },
+    { value: "08", label: "Avgust" },
+    { value: "09", label: "Septembar" },
+    { value: "10", label: "Oktobar" },
+    { value: "11", label: "Novembar" },
+    { value: "12", label: "Decembar" },
   ];
 
   const filteredFinansije = finansije

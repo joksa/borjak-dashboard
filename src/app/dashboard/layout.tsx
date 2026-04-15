@@ -4,6 +4,7 @@ import { AppSidebar } from "@/components/app-sidebar";
 import { SidebarProvider, useSidebar } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Toaster } from "sonner";
+import { VersionBanner } from "@/components/version-banner";
 
 function DashboardContent({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile();
@@ -30,6 +31,7 @@ export default function DashboardLayout({
 }) {
   return (
     <SidebarProvider>
+      <VersionBanner />
       <AppSidebar />
       <DashboardContent>{children}</DashboardContent>
       <Toaster />

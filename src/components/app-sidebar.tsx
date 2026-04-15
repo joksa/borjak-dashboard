@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/sidebar";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { useAuthStore } from "@/store/useAuthStore";
+import { BuiltByBadge } from "@/components/build-by-badge";
 
 import {
   DropdownMenu,
@@ -73,6 +74,10 @@ const items = [
       {
         title: "Stanje",
         url: "/dashboard/liflet/stanje",
+      },
+      {
+        title: "Plan",
+        url: "/dashboard/liflet/plan",
       },
     ],
   },
@@ -181,6 +186,14 @@ export function AppSidebar() {
   const userLevel = user?.level;
   const loading = isLoading;
 
+  const [appVersion, setAppVersion] = useState<string | null>(null);
+  useEffect(() => {
+    fetch("/api/version", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setAppVersion(d.version ?? null))
+      .catch(() => {});
+  }, []);
+
   // Filter items based on user level
   const filteredItems = items.filter((item) => {
     if (item.url.startsWith("/dashboard/liflet") || item.url === "/dashboard/email"|| item.url === "/dashboard/operateri") {
@@ -283,8 +296,12 @@ export function AppSidebar() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <div className="px-4 pb-2 text-xs text-muted-foreground text-center">
-          © { new Date().getFullYear() } Borjak
+        <div className="px-4 pb-2 flex flex-col items-center gap-1">
+          <BuiltByBadge inline />
+          <span className="text-xs text-muted-foreground">
+            © {new Date().getFullYear()} Borjak
+            {appVersion ? ` · v${appVersion}` : ""}
+          </span>
         </div>
       </SidebarFooter>
     </Sidebar>
