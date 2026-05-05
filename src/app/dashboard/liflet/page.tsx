@@ -51,7 +51,6 @@ import {
 import { toast } from "sonner";
 import html2canvas from "html2canvas";
 import jsPDF from "jspdf";
-import JSZip from "jszip";
 
 type LifletZaglavlje = {
   id: number;
@@ -279,6 +278,8 @@ export default function LifletPage() {
   };
 
   const handleDelete = async (id: number) => {
+    toast.error("Zabranjeno brisanje lifleta");
+    /*
     try {
       const response = await fetch(`/api/liflet/zaglavlje/${id}`, {
         method: "DELETE",
@@ -299,7 +300,7 @@ export default function LifletPage() {
     } catch (error) {
       console.error("Error deleting liflet:", error);
       toast.error("Failed to delete liflet");
-    }
+    }*/
   };
 
   const resetForm = () => {
@@ -594,11 +595,7 @@ export default function LifletPage() {
         return;
       }
 
-      // Create ZIP file
-      const zip = new JSZip();
-
-      // Create tab-delimited text data
-      const headers = [
+      const columnHeaders = [
         "ID",
         "Artikal",
         "Šifra",
@@ -608,61 +605,54 @@ export default function LifletPage() {
         "Redovna cena",
         "Akcijska cena",
         "Slika",
-      ].join("\t");
+      ];
 
-      const rows = filteredData.map((detalj) => {
-        return [
-          detalj.id,
-          detalj.artikli?.DESCRIPTION || "",
-          detalj.artikli?.Id_Artikal || "",
-          detalj.artikli?.BAR_CODE || "",
-          detalj.klijenti?.Naziv || "",
-          detalj.klijenti?.PIB || "",
-          detalj.cena_redovna ? Number(detalj.cena_redovna).toFixed(2) : "",
-          detalj.cena_akcija ? Number(detalj.cena_akcija).toFixed(2) : "",
-          detalj.image || "",
-        ].join("\t");
+      const rowValues = filteredData.map((detalj) => [
+        detalj.id,
+        detalj.artikli?.DESCRIPTION || "",
+        detalj.artikli?.Id_Artikal || "",
+        detalj.artikli?.BAR_CODE || "",
+        detalj.klijenti?.Naziv || "",
+        detalj.klijenti?.PIB || "",
+        detalj.cena_redovna ? Number(detalj.cena_redovna).toFixed(2) : "",
+        detalj.cena_akcija ? Number(detalj.cena_akcija).toFixed(2) : "",
+        detalj.image || "",
+      ]);
+
+      // Plain tab-delimited text file
+      const textContent = [
+        columnHeaders.join("\t"),
+        ...rowValues.map((r) => r.join("\t")),
+      ].join("\n");
+
+      // CSV file (quote fields that may contain commas)
+      const escapeCSV = (v: unknown) => {
+        const s = String(v);
+        return s.includes(",") || s.includes('"') || s.includes("\n")
+          ? `"${s.replace(/"/g, '""')}"`
+          : s;
+      };
+      const csvContent = [
+        columnHeaders.map(escapeCSV).join(","),
+        ...rowValues.map((r) => r.map(escapeCSV).join(",")),
+      ].join("\n");
+
+      const baseName = `liflet_${selectedLiflet.id}_${new Date().toISOString().split("T")[0]}`;
+
+      const txtFile = new File([textContent], `${baseName}.txt`, {
+        type: "text/plain",
+      });
+      const csvFile = new File([csvContent], `${baseName}.csv`, {
+        type: "text/csv",
       });
 
-      const textContent = [headers, ...rows].join("\n");
-      zip.file("artikli.txt", textContent);
-
-      // Create images folder and fetch images
-      const imagesFolder = zip.folder("slike");
-      if (imagesFolder) {
-        const imagePromises = filteredData
-          .filter((detalj) => detalj.image)
-          .map(async (detalj) => {
-            try {
-              const response = await fetch(`/api/images/${detalj.image}`);
-              if (response.ok) {
-                const blob = await response.blob();
-                imagesFolder.file(detalj.image!, blob);
-              }
-            } catch (error) {
-              console.error(`Failed to fetch image ${detalj.image}:`, error);
-            }
-          });
-
-        await Promise.all(imagePromises);
-      }
-
-      // Generate ZIP file
-      const zipBlob = await zip.generateAsync({ type: "blob" });
-
-      // Create File object from blob
-      const zipFile = new File(
-        [zipBlob],
-        `liflet_${selectedLiflet.id}_${new Date().toISOString().split("T")[0]}.zip`,
-        { type: "application/zip" },
-      );
-
-      // Send email with attachment
+      // Send email with both attachments
       const formData = new FormData();
       formData.append("to", shareFormData.to.trim());
       formData.append("subject", shareFormData.subject.trim());
       formData.append("text", shareFormData.message.trim());
-      formData.append("attachment_0", zipFile);
+      formData.append("attachment_0", txtFile);
+      formData.append("attachment_1", csvFile);
 
       const response = await fetch("/api/send-email", {
         method: "POST",
@@ -1412,7 +1402,11 @@ export default function LifletPage() {
                               type="button"
                               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                               onClick={() => {
-                                setDetailFormData({ ...detailFormData, Id_artikal: "", selectedArticle: null });
+                                setDetailFormData({
+                                  ...detailFormData,
+                                  Id_artikal: "",
+                                  selectedArticle: null,
+                                });
                                 setArticleSearchTerm("");
                                 setSearchedArticles([]);
                               }}
@@ -1493,7 +1487,11 @@ export default function LifletPage() {
                               type="button"
                               className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                               onClick={() => {
-                                setDetailFormData({ ...detailFormData, ID_Klijent: "", selectedClient: null });
+                                setDetailFormData({
+                                  ...detailFormData,
+                                  ID_Klijent: "",
+                                  selectedClient: null,
+                                });
                                 setClientSearchTerm("");
                                 setSearchedClients([]);
                               }}
@@ -1787,10 +1785,10 @@ export default function LifletPage() {
                   <thead>
                     <tr className="bg-muted/50">
                       <th className="border border-border px-2 py-2 text-left w-64">
-                        Artikal
+                        Dobavljač
                       </th>
                       <th className="border border-border px-2 py-2 text-left w-48">
-                        Klijent
+                        Artikal
                       </th>
                       <th className="border border-border px-4 py-2 text-left w-24">
                         Regularna cena
@@ -1826,6 +1824,16 @@ export default function LifletPage() {
                       })
                       .map((detalj) => (
                         <tr key={detalj.id} className="hover:bg-muted">
+                          <td className="border border-border px-2 py-2 w-48">
+                            <div>
+                              <div className="font-medium">
+                                {detalj.klijenti?.Naziv}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                PIB: {detalj.klijenti?.PIB}
+                              </div>
+                            </div>
+                          </td>
                           <td className="border border-border px-2 py-2 w-64">
                             <div>
                               <div className="font-medium">
@@ -1836,16 +1844,6 @@ export default function LifletPage() {
                               </div>
                               <div className="text-sm text-muted-foreground">
                                 {detalj.artikli?.BAR_CODE}
-                              </div>
-                            </div>
-                          </td>
-                          <td className="border border-border px-2 py-2 w-48">
-                            <div>
-                              <div className="font-medium">
-                                {detalj.klijenti?.Naziv}
-                              </div>
-                              <div className="text-sm text-muted-foreground">
-                                PIB: {detalj.klijenti?.PIB}
                               </div>
                             </div>
                           </td>

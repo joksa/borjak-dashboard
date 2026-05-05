@@ -238,7 +238,7 @@ export default function StanjePage() {
           </div>
 
           <div style="margin-bottom: 20px; text-align: center;">
-            <h2 style="margin: 0; font-size: 20px; color: #333;">Client Statement: ${
+            <h2 style="margin: 0; font-size: 20px; color: #333;">Kartica Partnera (Liflet): ${
               client.naziv
             }</h2>
             <p style="margin: 10px 0; font-size: 14px; color: #666;">PIB: ${
@@ -326,7 +326,7 @@ export default function StanjePage() {
           </table>
 
           <div style="margin-top: 20px; text-align: center; font-size: 14px; font-weight: bold; padding: 15px; background-color: #e9ecef; border-radius: 5px;">
-            Konačno stanje: ${formatSerbianNumberHTML(Math.abs(finalBalance))} 
+            Konačno stanje: ${formatSerbianNumberHTML(finalBalance)} 
           </div>
         </div>
       `;
