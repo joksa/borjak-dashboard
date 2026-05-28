@@ -174,11 +174,12 @@ model klijenti {
   Drzava           String?            @db.VarChar(255)
   Povezano_Lice    Boolean?
   Puni_Naziv       String?            @db.VarChar(255)
-  klijenti_racuni  klijenti_racuni[]
-  liflet_detalji   liflet_detalji[]
-  liflet_finansije liflet_finansije[]
-  liflet_plan      liflet_plan[]
-  liflet_zaglavlje liflet_zaglavlje[]
+  klijenti_racuni    klijenti_racuni[]
+  liflet_detalji     liflet_detalji[]
+  liflet_finansije   liflet_finansije[]
+  liflet_grupna_cena liflet_grupna_cena[]
+  liflet_plan        liflet_plan[]
+  liflet_zaglavlje   liflet_zaglavlje[]
 }
 
 model korisnici {
@@ -286,13 +287,14 @@ model sinhro {
 }
 
 model liflet_zaglavlje {
-  id             Int              @id @default(autoincrement())
-  datum_od       DateTime         @db.Date
-  datum_do       DateTime         @db.Date
-  ID_Klijent     Int?
-  op_id          Int?
-  liflet_detalji liflet_detalji[]
-  klijenti       klijenti?        @relation(fields: [ID_Klijent], references: [ID_Klijent], onDelete: NoAction, onUpdate: NoAction, map: "liflet_zaglavlje_ibfk_1")
+  id                 Int                  @id @default(autoincrement())
+  datum_od           DateTime             @db.Date
+  datum_do           DateTime             @db.Date
+  ID_Klijent         Int?
+  op_id              Int?
+  liflet_detalji     liflet_detalji[]
+  liflet_grupna_cena liflet_grupna_cena[]
+  klijenti           klijenti?            @relation(fields: [ID_Klijent], references: [ID_Klijent], onDelete: NoAction, onUpdate: NoAction, map: "liflet_zaglavlje_ibfk_1")
 
   @@index([ID_Klijent], map: "ID_Klijent")
 }
@@ -312,6 +314,19 @@ model liflet_detalji {
   @@index([ID_Klijent], map: "ID_Klijent_detalji")
   @@index([Id_artikal], map: "Id_artikal")
   @@index([liflet_id], map: "liflet_id")
+}
+
+model liflet_grupna_cena {
+  id               Int              @id @default(autoincrement())
+  liflet_id        Int
+  ID_Klijent       Int
+  cena             Decimal          @db.Decimal(10, 2)
+  liflet_zaglavlje liflet_zaglavlje @relation(fields: [liflet_id], references: [id], onDelete: Cascade)
+  klijenti         klijenti         @relation(fields: [ID_Klijent], references: [ID_Klijent], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([liflet_id, ID_Klijent])
+  @@index([liflet_id])
+  @@index([ID_Klijent])
 }
 
 model liflet_finansije {

@@ -116,6 +116,7 @@ export default function LifletPage() {
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
   const [isGrouped, setIsGrouped] = useState(false);
+  const [grupneCene, setGrupneCene] = useState<Record<number, string>>({});
 
   // Modal states for store selection
   const [isStoreSelectionModalOpen, setIsStoreSelectionModalOpen] =
@@ -211,12 +212,41 @@ export default function LifletPage() {
 
   const loadLifletDetalji = async (lifletId: number) => {
     try {
-      const response = await fetch(`/api/liflet/detalji?liflet_id=${lifletId}`);
-      const data = await response.json();
-      setLifletDetalji(data.data || []);
+      const [detaljiRes, grupneRes] = await Promise.all([
+        fetch(`/api/liflet/detalji?liflet_id=${lifletId}`),
+        fetch(`/api/liflet/grupna-cena?liflet_id=${lifletId}`),
+      ]);
+      const detaljiData = await detaljiRes.json();
+      const grupneData = await grupneRes.json();
+      setLifletDetalji(detaljiData.data || []);
+      const ceneMap: Record<number, string> = {};
+      for (const item of grupneData.data || []) {
+        ceneMap[item.ID_Klijent] = Number(item.cena).toFixed(2);
+      }
+      setGrupneCene(ceneMap);
     } catch (error) {
       console.error("Error loading liflet detalji:", error);
       toast.error("Failed to load liflet details");
+    }
+  };
+
+  const saveGrupnaCena = async (ID_Klijent: number, cena: string) => {
+    if (!selectedLiflet) return;
+    const cenaNum = parseFloat(cena.replace(",", "."));
+    if (isNaN(cenaNum)) return;
+    try {
+      await fetch("/api/liflet/grupna-cena", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          liflet_id: selectedLiflet.id,
+          ID_Klijent,
+          cena: cenaNum,
+        }),
+      });
+    } catch (error) {
+      console.error("Error saving grupna cena:", error);
+      toast.error("Greška pri čuvanju cene grupe");
     }
   };
 
@@ -1932,25 +1962,58 @@ export default function LifletPage() {
                         return filtered.map(renderRow);
                       }
 
-                      const groups: Record<string, LifletDetalji[]> = {};
+                      const groups: Record<string, { items: LifletDetalji[]; ID_Klijent: number | null }> = {};
                       filtered.forEach((d) => {
                         const key = d.klijenti?.Naziv || "Nepoznat";
-                        if (!groups[key]) groups[key] = [];
-                        groups[key].push(d);
+                        if (!groups[key]) groups[key] = { items: [], ID_Klijent: d.klijenti?.ID_Klijent ?? null };
+                        groups[key].items.push(d);
                       });
 
                       return Object.entries(groups)
                         .sort(([a], [b]) => a.localeCompare(b, "sr"))
-                        .flatMap(([name, items]) => [
+                        .flatMap(([name, { items, ID_Klijent: gKlijentId }]) => [
                           <tr key={`grp-${name}`}>
                             <td
                               colSpan={6}
                               className="border border-border bg-muted px-3 py-2 font-semibold text-sm"
                             >
-                              {name}
-                              <span className="ml-2 text-muted-foreground font-normal">
-                                ({items.length})
-                              </span>
+                              <div className="flex items-center justify-between gap-4">
+                                <span>
+                                  {name}
+                                  <span className="ml-2 text-muted-foreground font-normal">
+                                    ({items.length})
+                                  </span>
+                                </span>
+                                {gKlijentId !== null && (
+                                  <div className="flex items-center gap-2 font-normal">
+                                    <span className="text-muted-foreground text-xs">Cena grupe:</span>
+                                    <input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      placeholder="0.00"
+                                      value={grupneCene[gKlijentId] ?? ""}
+                                      onChange={(e) =>
+                                        setGrupneCene((prev) => ({
+                                          ...prev,
+                                          [gKlijentId]: e.target.value,
+                                        }))
+                                      }
+                                      onBlur={(e) => {
+                                        if (e.target.value !== "") {
+                                          saveGrupnaCena(gKlijentId, e.target.value);
+                                        }
+                                      }}
+                                      onKeyDown={(e) => {
+                                        if (e.key === "Enter") {
+                                          (e.target as HTMLInputElement).blur();
+                                        }
+                                      }}
+                                      className="w-28 h-7 px-2 text-sm border border-border rounded bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-ring"
+                                    />
+                                  </div>
+                                )}
+                              </div>
                             </td>
                           </tr>,
                           ...items.map(renderRow),
