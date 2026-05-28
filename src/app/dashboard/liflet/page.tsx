@@ -115,6 +115,7 @@ export default function LifletPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage, setItemsPerPage] = useState(10);
   const [totalRecords, setTotalRecords] = useState(0);
+  const [isGrouped, setIsGrouped] = useState(false);
 
   // Modal states for store selection
   const [isStoreSelectionModalOpen, setIsStoreSelectionModalOpen] =
@@ -1560,7 +1561,7 @@ export default function LifletPage() {
                         placeholder="0.00"
                       />
                     </div>
-                    <div className="grid grid-cols-4 items-start gap-4">
+                    <div className="hidden">
                       <Label className="text-right pt-2">Slika</Label>
                       <div className="col-span-3">
                         <div
@@ -1742,7 +1743,7 @@ export default function LifletPage() {
                   <SelectTrigger className="w-48">
                     <SelectValue placeholder="Filtriraj po klijentu" />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="max-h-60 overflow-y-auto">
                     <SelectItem value="all">Svi Klijenti</SelectItem>
                     {Array.from(
                       new Set(
@@ -1778,6 +1779,14 @@ export default function LifletPage() {
                   <Download className="w-4 h-4" />
                   Dodaj u Rafove
                 </Button>
+
+                <Button
+                  variant={isGrouped ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setIsGrouped((g) => !g)}
+                >
+                  {isGrouped ? "Razgrupiši" : "Grupiši po dobavljaču"}
+                </Button>
               </div>
 
               <div className="overflow-x-auto w-full">
@@ -1796,7 +1805,7 @@ export default function LifletPage() {
                       <th className="border border-border px-4 py-2 text-left w-24">
                         Akcijska cena
                       </th>
-                      <th className="border border-border px-2 py-2 text-left w-20">
+                      <th className="hidden border border-border px-2 py-2 text-left w-20">
                         Slika
                       </th>
                       <th className="border border-border px-2 py-2 text-left w-32">
@@ -1805,24 +1814,21 @@ export default function LifletPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {lifletDetalji
-                      .filter((detalj) => {
-                        // Filter po tekstu
+                    {(() => {
+                      const filtered = lifletDetalji.filter((detalj) => {
                         const matchesSearch =
                           !searchTerm ||
                           detalj.artikli?.DESCRIPTION?.toLowerCase().includes(
                             searchTerm.toLowerCase(),
                           ) ||
                           detalj.artikli?.BAR_CODE?.includes(searchTerm);
-
-                        // Filter po klijentu
                         const matchesClient =
                           clientFilter === "all" ||
                           detalj.klijenti?.Naziv === clientFilter;
-
                         return matchesSearch && matchesClient;
-                      })
-                      .map((detalj) => (
+                      });
+
+                      const renderRow = (detalj: LifletDetalji) => (
                         <tr key={detalj.id} className="hover:bg-muted">
                           <td className="border border-border px-2 py-2 w-48">
                             <div>
@@ -1857,7 +1863,7 @@ export default function LifletPage() {
                               ? `${Number(detalj.cena_akcija).toFixed(2)}`
                               : "-"}
                           </td>
-                          <td className="border border-border px-2 py-2 w-20 justify-center items-center">
+                          <td className="hidden border border-border px-2 py-2 w-20 justify-center items-center">
                             {detalj.image ? (
                               <img
                                 src={`/api/images/${detalj.image}`}
@@ -1920,7 +1926,36 @@ export default function LifletPage() {
                             </div>
                           </td>
                         </tr>
-                      ))}
+                      );
+
+                      if (!isGrouped) {
+                        return filtered.map(renderRow);
+                      }
+
+                      const groups: Record<string, LifletDetalji[]> = {};
+                      filtered.forEach((d) => {
+                        const key = d.klijenti?.Naziv || "Nepoznat";
+                        if (!groups[key]) groups[key] = [];
+                        groups[key].push(d);
+                      });
+
+                      return Object.entries(groups)
+                        .sort(([a], [b]) => a.localeCompare(b, "sr"))
+                        .flatMap(([name, items]) => [
+                          <tr key={`grp-${name}`}>
+                            <td
+                              colSpan={6}
+                              className="border border-border bg-muted px-3 py-2 font-semibold text-sm"
+                            >
+                              {name}
+                              <span className="ml-2 text-muted-foreground font-normal">
+                                ({items.length})
+                              </span>
+                            </td>
+                          </tr>,
+                          ...items.map(renderRow),
+                        ]);
+                    })()}
                   </tbody>
                 </table>
               </div>
@@ -2074,7 +2109,7 @@ export default function LifletPage() {
                 placeholder="0.00"
               />
             </div>
-            <div className="grid grid-cols-4 items-start gap-4">
+            <div className="hidden">
               <Label className="text-right pt-2">Slika</Label>
               <div className="col-span-3">
                 <div
